@@ -1,4 +1,4 @@
-# Resolvedor DNS Recursivo Validante em C++
+# Resolver DNS Recursivo Validante em C++
 
 Este projeto é uma implementação de um resolvedor DNS recursivo, validante, com suporte a cache e DNSSEC, desenvolvido para a disciplina de Redes de Computadores (2025/2).
 
