@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <vector>
+#include <unordered_map>
 
 using namespace std;
 
@@ -16,6 +17,21 @@ enum class Mode {
     StrictDNSSEC,
     Dot,
     Unknown
+};
+
+enum class CacheCommand {
+    None,
+    Activate,
+    Deactivate,
+    Status,
+    SetPositive,
+    SetNegative,
+    PurgePositive,
+    PurgeNegative,
+    PurgeAll,
+    ListPositive,
+    ListNegative,
+    ListAll
 };
 
 class Arguments {
@@ -34,10 +50,14 @@ public:
     int get_timeout() const { return _timeout; }
     bool is_trace_enabled() const { return _trace; }
 
+    CacheCommand get_cache_command() const { return cacheCommand_; }
+    int get_cache_value() const { return cacheValue_; }
+
     void print_summary() const;
     static void print_usage(const char* prog);
-    static std::string mode_to_string(Mode m);
-    static Mode string_to_mode(const std::string& s);
+    
+    static string mode_to_string(Mode m);
+    static Mode string_to_mode(const string& s);
 
 private:
     void parse(int argc, char* argv[]);
@@ -53,6 +73,10 @@ private:
     int _workers = 1;
     int _timeout = 5;
     bool _trace = false;
+
+    // comandos de cache
+    CacheCommand cacheCommand_ = CacheCommand::None;
+    int cacheValue_ = 0; // set positive/negative
 };
 
 #endif

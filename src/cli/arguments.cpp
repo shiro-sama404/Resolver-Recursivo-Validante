@@ -7,7 +7,7 @@
 //using namespace Arguments;
 
 // Mapeamento
-static const std::unordered_map<std::string, Mode> mode_map = {
+static const unordered_map<string, Mode> mode_map = {
     {"recursive", Mode::Recursive},
     {"forwarder", Mode::Forwarder},
     {"iterative", Mode::Iterative},
@@ -17,14 +17,14 @@ static const std::unordered_map<std::string, Mode> mode_map = {
     {"dot", Mode::Dot}
 };
 
-std::string Arguments::mode_to_string(Mode m) {
+string Arguments::mode_to_string(Mode m) {
     for (const auto& [key, val] : mode_map) 
         if (val == m) return key;
 
     return "unknown";
 }
 
-Mode Arguments::string_to_mode(const std::string& s) {
+Mode Arguments::string_to_mode(const string& s) {
     auto it = mode_map.find(s);
     if (it != mode_map.end()) return it->second;
     return Mode::Unknown;
@@ -52,32 +52,54 @@ void Arguments::parse(int argc, char* argv[]) {
         {"workers", required_argument, nullptr, 'w'},
         {"timeout", required_argument, nullptr, 'o'},
         {"trace", no_argument, nullptr, 'r'},
+
+        // comandos da cache
+        {"activate", no_argument, nullptr, 1000},
+        {"deactivate", no_argument, nullptr, 1001},
+        {"status", no_argument, nullptr, 1002},
+        {"set-positive", required_argument, nullptr, 1003},
+        {"set-negative", required_argument, nullptr, 1004},
+        {"purge-positive", no_argument, nullptr, 1005},
+        {"purge-negative", no_argument, nullptr, 1006},
+        {"purge-all", no_argument, nullptr, 1007},
+        {"list-positive", no_argument, nullptr, 1008},
+        {"list-negative", no_argument, nullptr, 1009},
+        {"list-all", no_argument, nullptr, 1010},
+
         {nullptr, 0, nullptr, 0}
     };
 
     int opt, option_index = 0;
     while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
         switch (opt) {
+            // parâmetros DNS
             case 'n': _ns = optarg; break;
             case 'd': _name = optarg; break;
             case 'q': _qtype = optarg; break;
             case 'm': _mode = string_to_mode(optarg); break;
             case 's': _sni = string(optarg); break;
-            case 't': _trustanchor_ = string(optarg); break;
+            case 't': _trust_anchor = string(optarg); break;
             case 'f': _fanout = stoi(optarg); break;
             case 'w': _workers = stoi(optarg); break;
             case 'o': _timeout = stoi(optarg); break;
             case 'r': _trace = true; break;
+
+            // comandos da cache
+            case 1000: cacheCommand_ = CacheCommand::Activate; break;
+            case 1001: cacheCommand_ = CacheCommand::Deactivate; break;
+            case 1002: cacheCommand_ = CacheCommand::Status; break;
+            case 1003: cacheCommand_ = CacheCommand::SetPositive; cacheValue_ = std::stoi(optarg); break;
+            case 1004: cacheCommand_ = CacheCommand::SetNegative; cacheValue_ = std::stoi(optarg); break;
+            case 1005: cacheCommand_ = CacheCommand::PurgePositive; break;
+            case 1006: cacheCommand_ = CacheCommand::PurgeNegative; break;
+            case 1007: cacheCommand_ = CacheCommand::PurgeAll; break;
+            case 1008: cacheCommand_ = CacheCommand::ListPositive; break;
+            case 1009: cacheCommand_ = CacheCommand::ListNegative; break;
+            case 1010: cacheCommand_ = CacheCommand::ListAll; break;
             default:
                 print_usage(argv[0]);
                 throw invalid_argument("Argumento inválido.");
         }
-    }
-
-    // Validação
-    if (_ns.empty() || _name.empty() || _qtype.empty()) {
-        print_usage(argv[0]);
-        throw invalid_argument("Parâmetros obrigatórios faltando!");
     }
 }
 
