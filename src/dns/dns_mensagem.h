@@ -22,31 +22,37 @@ struct PerguntaDNS {
     uint16_t qclass;   
 };
 
+// ResourceRecurses
+struct RegistroRecursos {
+    std::string nome;
+    uint16_t tipo;
+    uint16_t classe;
+    uint32_t ttl;
+    uint16_t rdlen;
+    std::vector<uint8_t> rdata; 
+};
+
 class DNSMensagem {
 public:
     CabecalhoDNS cabecalho;
     PerguntaDNS pergunta;
+    std::vector<RegistroRecursos> respostas;
 
     DNSMensagem();
-
+    
     void configurarConsulta(const std::string& nome, uint16_t tipo);
-
+    
     std::vector<uint8_t> montarQuery();
-
+    
     void parseResposta(const std::vector<uint8_t>& dados);
-
-    vector<RegistroRecursos> respostas; // armazena todas as respostas da consulta
-
+    
     void imprimirResposta();
-      
-    private:
-        void addUint16(std::vector<uint8_t>& pacote, uint16_t valor);
-        void addPergunta(std::vector<uint8_t>& pacote); 
 
+private:
+    void addUint16(std::vector<uint8_t>& pacote, uint16_t valor);
+    void addPergunta(std::vector<uint8_t>& pacote); 
 };
 
-
-#endif 
-
+#endif
 
 
