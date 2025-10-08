@@ -1,0 +1,378 @@
+Relatório do Projeto – Resolver DNS Recursivo com Cache e DoT
+1. Introdução
+
+O projeto consiste em desenvolver um resolvedor DNS recursivo e validante, utilizando C++ e apenas chamadas de sockets de baixo nível. A decisão de usar C++ foi tomada para permitir organização do código em classes, facilitando manutenção, leitura e expansão futura.
+
+Objetivos principais da implementação:
+
+Resolver consultas DNS de forma recursiva.
+
+Suportar fallback para TCP em caso de respostas truncadas (TC=1).
+
+Implementar comunicação segura via DNS over TLS (DoT).
+
+Criar uma arquitetura modular e organizada, com classes separadas para mensagens DNS, clientes UDP e TCP.
+
+. Estrutura do Projeto
+
+A organização em múltiplos arquivos foi feita para modularizar responsabilidades:
+
+DNSResolver/
+├─ main.cpp           ← Arquivo principal que coordena o programa
+├─ DNSMessage.h       ← Definição da classe DNSMessage
+├─ DNSMessage.cpp     ← Implementação da classe DNSMessage
+├─ UDPClient.h        ← Definição da classe UDPClient
+├─ UDPClient.cpp      ← Implementação da classe UDPClient
+├─ TCPClient.h        ← Definição da classe TCPClient
+├─ TCPClient.cpp      ← Implementação da classe TCPClient
+
+
+Justificativa:
+
+Separar classes e funcionalidades permite clareza, reuso e facilidade para testes unitários.
+
+main.cpp não precisa conhecer detalhes de implementação das classes, respeitando o princípio de encapsulamento do C++.
+
+
+2️⃣ flags — Bits de controle
+
+O que faz: Contém várias informações de controle em 16 bits, como:
+
+Bit	Nome	Significado
+QR	Query/Response	0 = consulta, 1 = resposta
+Opcode	Tipo de operação	Normal = 0, Outros = inversão, atualização, etc.
+AA	Authoritative Answer	1 se servidor é autoritativo
+TC	Truncated	1 se resposta foi cortada (precisa TCP)
+RD	Recursion Desired	1 se cliente quer resolução recursiva
+RA	Recursion Available	1 se servidor suporta recursão
+Z	Reservado	Sempre 0
+AD	Authentic Data	1 se DNSSEC validado
+CD	Checking Disabled	1 se validação DNSSEC está desligada
+RCODE	Código de resposta	0 = sem erro, 3 = NXDOMAIN, etc.
+
+3️⃣ qdcount — Quantidade de perguntas
+
+O que faz: Indica quantas perguntas existem na seção Question.
+
+Normalmente 1, porque quase sempre se consulta um domínio por vez, mas o protocolo permite mais de uma pergunta.
+
+4️⃣ ancount — Quantidade de respostas
+
+O que faz: Indica quantos registros estão na seção Answer.
+
+Ex.: se você perguntou por www.exemplo.com A e o servidor respondeu com 2 endereços IPv4, ancount = 2.
+
+5️⃣ nscount — Quantidade de registros de autoridade
+
+O que faz: Indica quantos registros NS ou SOA estão na seção Authority.
+
+Essa seção mostra para quais servidores ou zonas a informação pertence.
+
+Ex.: se o domínio que você perguntou é delegado a outro servidor NS, ele aparece aqui.
+
+
+#include <cstdint>     // para garantir que cada campo do DNS tem o tamanho exato que o protocolo exige
+
+// Estrutura do cabeçalho DNS (Header)
+struct CabecalhoDNS {
+    uint16_t id;       // Id da consulta
+    uint16_t flags;    // Bits de controle (QR, RD, RA, TC, etc.)
+    uint16_t qdcount;  // Qtd de perguntas
+    uint16_t ancount;  // Qtd de respostas
+    uint16_t nscount;  // Qtd de registros de autoridade
+    uint16_t arcount;  // Qtd de registros adicionais
+}; aqui tem que explicar que tá usando inteiro de 16 bits porque segundo a rfc tal tal tal esse é o valor padrão etc
+
+
+Perfeito! Nesse caso, o que precisa ser ajustado é **o suporte a nomes DNS comprimidos**, que aparecem em praticamente todas as respostas reais de servidores.
+
+Atualmente, seu `lerNome()` só lê labels simples (`3www6google3com0`) e ignora os ponteiros (quando os 2 bits mais significativos do byte são `11`). Sem isso, qualquer resposta real com compressão de nomes **vai quebrar ou retornar nomes errados**.
+
+Vou te explicar a mudança principal para deixar funcional:
+
+---
+
+### Como tratar nomes comprimidos (RFC 1035)
+
+No DNS, quando um nome aparece mais de uma vez, ele pode ser substituído por um **ponteiro** para uma posição anterior do pacote.
+
+* Um ponteiro começa com os 2 bits mais altos do byte iguais a `11` (`0xC0`).
+* Os 14 bits restantes indicam o **offset** dentro do pacote onde começa o nome.
+
+Então, no `lerNome()`, precisamos:
+
+1. Detectar se o byte atual é um ponteiro (`len & 0xC0 == 0xC0`).
+2. Se for, ler o **offset**, salvar a posição atual (para continuar lendo depois do ponteiro), e chamar `lerNome()` recursivamente nesse offset.
+3. Concatenar o resultado com o restante do nome.
+
+---
+
+### Pseudocódigo simplificado:
+
+```cpp
+string lerNome(const vector<uint8_t>& dados, size_t& pos) {
+    string nome;
+    size_t originalPos = pos; // salvar posição atual
+    bool seguir = true;
+
+    while (seguir && pos < dados.size()) {
+        uint8_t len = dados[pos++];
+        if (len == 0) break; // fim do nome
+
+        if ((len & 0xC0) == 0xC0) { // ponteiro
+            uint8_t segundo = dados[pos++];
+            size_t offset = ((len & 0x3F) << 8) | segundo;
+            nome += lerNome(dados, offset); // recursão no offset
+            break; // ponteiro sempre finaliza o nome
+        } else { 
+            if (!nome.empty()) nome += '.';
+            for (int i = 0; i < len; ++i)
+                nome += static_cast<char>(dados[pos++]);
+        }
+    }
+
+    return nome;
+}
+```
+
+* Com isso, `parseResposta()` vai funcionar **para qualquer resposta real**, incluindo aquelas que usam compressão.
+* O resto do código (`montarQuery`, `addPergunta`, `imprimirResposta`) continua igual.
+
+---
+
+Se você quiser, eu posso **reescrever todo o seu `.cpp` funcional, limpo e completo**, pronto para se conectar a um servidor real de DNS, incluindo suporte a nomes comprimidos e parse de registros A.
+
+Quer que eu faça isso agora?
+
+
+
+
+
+//tá essa aqui é a função pra testes básicos
+//a partir de agora devia funcionar pra tudo
+
+/* só as modificações 
+
+#include "dns_mensagem.h"
+#include <iostream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <cstring>
+#include <cstdlib>
+
+using namespace std;
+
+// Função auxiliar para adicionar um uint16_t ao pacote DNS
+void DNSMensagem::addUint16(vector<uint8_t>& pacote, uint16_t valor) {
+    pacote.push_back(valor >> 8);     // byte mais significativo
+    pacote.push_back(valor & 0xFF);   // byte menos significativo
+}
+
+// Função auxiliar para ler 2 bytes como uint16_t
+uint16_t lerUint16(const vector<uint8_t>& dados, size_t& pos) {
+    uint16_t valor = (dados[pos] << 8) | dados[pos + 1];
+    pos += 2;
+    return valor;
+}
+
+// Função auxiliar para ler 4 bytes como uint32_t
+uint32_t lerUint32(const vector<uint8_t>& dados, size_t& pos) {
+    uint32_t valor = (dados[pos] << 24) | (dados[pos + 1] << 16) |
+                     (dados[pos + 2] << 8) | dados[pos + 3];
+    pos += 4;
+    return valor;
+}
+
+// Função para ler nomes DNS com suporte a compressão de nomes
+string lerNome(const vector<uint8_t>& dados, size_t& pos) {
+    string nome;
+    size_t originalPos = pos;
+    bool saltou = false;
+
+    while (pos < dados.size()) {
+        uint8_t len = dados[pos++];
+
+        // Ponteiro de compressão (2 bits mais altos = 11)
+        if ((len & 0xC0) == 0xC0) {
+            uint8_t offset = dados[pos++];
+            size_t novoPos = ((len & 0x3F) << 8) | offset;
+            if (!saltou) originalPos = pos; // guarda posição caso seja ponteiro
+            pos = novoPos;
+            saltou = true;
+            continue;
+        }
+
+        if (len == 0) break;
+
+        if (!nome.empty()) nome += '.';
+        for (int i = 0; i < len && pos < dados.size(); ++i)
+            nome += static_cast<char>(dados[pos++]);
+    }
+
+    if (saltou) pos = originalPos; // retoma a posição original após ponteiro
+    return nome;
+}
+
+// Parse da resposta DNS
+void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
+    if (dados.size() < 12) {
+        cout << "Pacote DNS inválido (muito pequeno)." << endl;
+        return;
+    }
+
+    size_t pos = 0;
+
+    // Cabeçalho
+    cabecalho.id      = lerUint16(dados, pos);
+    cabecalho.flags   = lerUint16(dados, pos);
+    cabecalho.qdcount = lerUint16(dados, pos);
+    cabecalho.ancount = lerUint16(dados, pos);
+    cabecalho.nscount = lerUint16(dados, pos);
+    cabecalho.arcount = lerUint16(dados, pos);
+
+    // Perguntas
+    pergunta.qname  = lerNome(dados, pos);
+    pergunta.qtype  = lerUint16(dados, pos);
+    pergunta.qclass = lerUint16(dados, pos);
+
+    // Respostas
+    for (int i = 0; i < cabecalho.ancount; ++i) {
+        string nome = lerNome(dados, pos);
+        uint16_t tipo   = lerUint16(dados, pos);
+        uint16_t classe = lerUint16(dados, pos);
+        uint32_t ttl    = lerUint32(dados, pos);
+        uint16_t rdlen  = lerUint16(dados, pos);
+
+        cout << "Nome: " << nome << "  Tipo: " << tipo
+             << "  Classe: " << classe << "  TTL: " << ttl << endl;
+
+        // Tipo A → IPv4
+        if (tipo == 1 && rdlen == 4) {
+            cout << "Endereço: "
+                 << (int)dados[pos] << "."
+                 << (int)dados[pos + 1] << "."
+                 << (int)dados[pos + 2] << "."
+                 << (int)dados[pos + 3] << endl;
+        }
+
+        pos += rdlen;
+        cout << "---------------------------\n";
+    }
+}
+
+// Exibe todas as informações armazenadas
+void DNSMensagem::imprimirResposta() {
+    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "ID:        " << cabecalho.id << endl;
+    cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
+    cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
+    cout << "ANCOUNT:   " << cabecalho.ancount << endl;
+    cout << "NSCOUNT:   " << cabecalho.nscount << endl;
+    cout << "ARCOUNT:   " << cabecalho.arcount << endl;
+
+    cout << "\n========= PERGUNTA =========\n";
+    cout << "Domínio:   " << pergunta.qname << endl;
+    cout << "Tipo:      " << pergunta.qtype << endl;
+    cout << "Classe:    " << pergunta.qclass << endl;
+}
+*/
+
+
+
+
+
+// Configura consulta: define domínio, tipo e gera ID
+void DNSMensagem::configurarConsulta(const string& nome, uint16_t tipo) {
+    pergunta.qname = nome;
+    pergunta.qtype = tipo;
+    pergunta.qclass = 1;       // IN (Internet)
+    cabecalho.id = rand() % 65536;  // ID aleatório
+}
+
+// Função simples para ler 2 bytes como uint16_t
+uint16_t lerUint16(const vector<uint8_t>& dados, size_t& pos) {
+    uint16_t valor = (dados[pos] << 8) | dados[pos + 1];
+    pos += 2;
+    return valor;
+}
+
+// Função simples para ler 4 bytes como uint32_t
+uint32_t lerUint32(const vector<uint8_t>& dados, size_t& pos) {
+    uint32_t valor = (dados[pos] << 24) | (dados[pos + 1] << 16) |
+                     (dados[pos + 2] << 8) | dados[pos + 3];
+    pos += 4;
+    return valor;
+}
+
+// Função para ler nomes DNS (labels)
+string lerNome(const vector<uint8_t>& dados, size_t& pos) {
+    string nome;
+    while (pos < dados.size()) {
+        uint8_t len = dados[pos++];
+        if (len == 0) break;
+        if (!nome.empty()) nome += '.';
+        for (int i = 0; i < len; ++i)
+            nome += static_cast<char>(dados[pos++]);
+    }
+    return nome;
+}
+
+// ---------- PARSE RESPOSTA ----------
+void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
+    if (dados.size() < 12) {
+        cout << "Pacote DNS inválido (muito pequeno)." << endl;
+        return;
+    }
+
+    size_t pos = 0;
+
+    cabecalho.id      = lerUint16(dados, pos);
+    cabecalho.flags   = lerUint16(dados, pos);
+    cabecalho.qdcount = lerUint16(dados, pos);
+    cabecalho.ancount = lerUint16(dados, pos);
+    cabecalho.nscount = lerUint16(dados, pos);
+    cabecalho.arcount = lerUint16(dados, pos);
+
+    pergunta.qname  = lerNome(dados, pos);
+    pergunta.qtype  = lerUint16(dados, pos);
+    pergunta.qclass = lerUint16(dados, pos);
+
+    for (int i = 0; i < cabecalho.ancount; ++i) {
+        string nome = lerNome(dados, pos);
+        uint16_t tipo   = lerUint16(dados, pos);
+        uint16_t classe = lerUint16(dados, pos);
+        uint32_t ttl    = lerUint32(dados, pos);
+        uint16_t rdlen  = lerUint16(dados, pos);
+
+        cout << "Nome: " << nome << "  Tipo: " << tipo
+             << "  Classe: " << classe << "  TTL: " << ttl << endl;
+
+        if (tipo == 1 && rdlen == 4) {
+            cout << "Endereço: "
+                 << (int)dados[pos] << "."
+                 << (int)dados[pos + 1] << "."
+                 << (int)dados[pos + 2] << "."
+                 << (int)dados[pos + 3] << endl;
+        }
+        pos += rdlen;
+        cout << "---------------------------\n";
+    }
+}
+
+// -----------------------------------------------------
+// Exibe todas as informações armazenadas na estrutura
+void DNSMensagem::imprimirResposta() {
+    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "ID:        " << cabecalho.id << endl;
+    cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
+    cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
+    cout << "ANCOUNT:   " << cabecalho.ancount << endl;
+    cout << "NSCOUNT:   " << cabecalho.nscount << endl;
+    cout << "ARCOUNT:   " << cabecalho.arcount << endl;
+
+    cout << "\n========= PERGUNTA =========\n";
+    cout << "Domínio:   " << pergunta.qname << endl;
+    cout << "Tipo:      " << pergunta.qtype << endl;
+    cout << "Classe:    " << pergunta.qclass << endl;
+}
