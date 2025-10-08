@@ -28,6 +28,8 @@ public:
 
     DNSMensagem();
 
+    void configurarConsulta(const std::string& nome, uint16_t tipo);
+
     std::vector<uint8_t> montarQuery();
 
     void parseResposta(const std::vector<uint8_t>& dados);
@@ -39,6 +41,7 @@ public:
         void addPergunta(std::vector<uint8_t>& pacote); 
 
 };
+
 
 #endif 
 
