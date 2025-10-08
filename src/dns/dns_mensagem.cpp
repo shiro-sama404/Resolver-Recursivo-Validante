@@ -116,6 +116,54 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     }
     return nome;
 }
+/*
+string lerNome(const vector<uint8_t>& dados, size_t& pos) {
+    string nome;          
+    size_t pos_original = pos;     
+    bool ponteiro = false;  
+
+    while (pos < dados.size()) {
+        uint8_t tam = dados[pos++];  
+
+        bool isPointer = (ponteiro & 0xC0) == 0xC0; // se os 2 bits mais altos forem 11, é ponteiro, se não é o tamanho da palavra
+        if (isPointer) {
+            uint8_t parteAlta = ponteiro & 0x3F;   // 6 bits baixos do primeiro byte do ponteiro
+            uint8_t parteBaixa = dados[pos++];              // segundo byte do ponteiro
+            size_t posPonteiro = (parteAlta << 8) | parteBaixa; // posição real no pacote
+
+            if (!seguiuPonteiro) posOriginal = pos;  // salva posição caso seja ponteiro pela primeira vez
+            pos = posPonteiro;                        // vai para a posição indicada pelo ponteiro
+            seguiuPonteiro = true;
+            continue;
+        }
+
+        // Se tamanho == 0, chegamos ao final do nome
+        if (tamanhoOuPonteiro == 0) break;
+
+        // adiciona ponto entre labels se já houver algo no nome
+        if (!nomeCompleto.empty()) nomeCompleto += '.';
+
+        // lê os caracteres do label
+        for (int i = 0; i < tamanhoOuPonteiro && pos < dados.size(); ++i)
+            nomeCompleto += static_cast<char>(dados[pos++]);
+    }
+
+    // Se seguimos algum ponteiro, voltamos à posição original para continuar o parse
+    if (seguiuPonteiro) pos = posOriginal;
+
+    return nomeCompleto;
+}*/
+
+struct RegistroRecursos {
+    string nome;
+    uint16_t tipo;
+    uint16_t classe;
+    uint32_t ttl;
+    uint16_t rdlen;
+    vector<uint8_t> rdata; 
+};
+
+
 
 void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
     if (dados.size() < 12) {
@@ -125,6 +173,7 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
 
     size_t pos = 0;
 
+    // Cabeçalho
     cabecalho.id      = lerUint16(dados, pos);
     cabecalho.flags   = lerUint16(dados, pos);
     cabecalho.qdcount = lerUint16(dados, pos);
@@ -132,32 +181,42 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
     cabecalho.nscount = lerUint16(dados, pos);
     cabecalho.arcount = lerUint16(dados, pos);
 
+    // Pergunta
     pergunta.qname  = lerNome(dados, pos);
     pergunta.qtype  = lerUint16(dados, pos);
     pergunta.qclass = lerUint16(dados, pos);
 
+    // Respostas
+    respostas.clear(); // limpa qualquer resposta anterior
     for (int i = 0; i < cabecalho.ancount; ++i) {
-        string nome = lerNome(dados, pos);
-        uint16_t tipo   = lerUint16(dados, pos);
-        uint16_t classe = lerUint16(dados, pos);
-        uint32_t ttl    = lerUint32(dados, pos); // tempo que o dado pode ficar armazenado em cache
-        uint16_t rdlen  = lerUint16(dados, pos); // tamanho da resposta
+        RegistroRecursos reg;
+        reg.nome   = lerNome(dados, pos);
+        reg.tipo   = lerUint16(dados, pos);
+        reg.classe = lerUint16(dados, pos);
+        reg.ttl    = lerUint32(dados, pos);
+        reg.rdlen  = lerUint16(dados, pos);
 
-        cout << "Nome: " << nome << "  Tipo: " << tipo
-             << "  Classe: " << classe << "  TTL: " << ttl << endl;
+        // copia os dados da resposta
+        reg.rdata.assign(dados.begin() + pos, dados.begin() + pos + reg.rdlen);
+        pos += reg.rdlen;
 
-        if (tipo == 1 && rdlen == 4) {
+        respostas.push_back(reg);
+
+        // impressão opcional
+        cout << "Nome: " << reg.nome << "  Tipo: " << reg.tipo
+             << "  Classe: " << reg.classe << "  TTL: " << reg.ttl << endl;
+
+        if (reg.tipo == 1 && reg.rdlen == 4) { // tipo A → IPv4
             cout << "Endereço: "
-                 << (int)dados[pos] << "."
-                 << (int)dados[pos + 1] << "."
-                 << (int)dados[pos + 2] << "."
-                 << (int)dados[pos + 3] << endl;
+                 << (int)reg.rdata[0] << "."
+                 << (int)reg.rdata[1] << "."
+                 << (int)reg.rdata[2] << "."
+                 << (int)reg.rdata[3] << endl;
         }
-        pos += rdlen;
         cout << "---------------------------\n";
     }
-
 }
+
 
 void DNSMensagem::imprimirResposta() {
     cout << "\n========= CABEÇALHO DNS =========\n";
