@@ -41,7 +41,7 @@ vector<uint8_t> DNSMensagem::montarQuery() {
     addUint16(pacote, cabecalho.id);
     addUint16(pacote, cabecalho.flags);
     addUint16(pacote, cabecalho.qdcount);
-    addUint16(pacote, cabecalho.ancount);
+    addUint16(pacote, cabecalho.ancount); // tamanho da resposta do servidor
     addUint16(pacote, cabecalho.nscount);
     addUint16(pacote, cabecalho.arcount);
 
@@ -78,6 +78,7 @@ uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
     uint16_t valor = 0;
 
     for (int i = 0; i < 2; ++i) {
+        //  | -> operador bit a bit, usado para combinar bytes em um único número.
         valor = (valor << 8) | dados[pos + i];
     }
 
@@ -88,7 +89,6 @@ uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
 // criei uma função diferente para ler dados de 32 bits porque ele só é lido uma vez
 // se fosse criar uma função geral, teria que ficar convertendo os dados de 16 bits toda vez que chamasse
 // afinal, 16 bits cabem em 32, mas 32 não cabem em 16
-
 uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
     uint32_t valor = 0;
 
@@ -115,4 +115,46 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
             nome += static_cast<char>(dados[pos++]);
     }
     return nome;
+}
+
+void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
+    if (dados.size() < 12) {
+        cout << "Pacote DNS inválido (muito pequeno)." << endl;
+        return;
+    }
+
+    size_t pos = 0;
+
+    cabecalho.id      = lerUint16(dados, pos);
+    cabecalho.flags   = lerUint16(dados, pos);
+    cabecalho.qdcount = lerUint16(dados, pos);
+    cabecalho.ancount = lerUint16(dados, pos);
+    cabecalho.nscount = lerUint16(dados, pos);
+    cabecalho.arcount = lerUint16(dados, pos);
+
+    pergunta.qname  = lerNome(dados, pos);
+    pergunta.qtype  = lerUint16(dados, pos);
+    pergunta.qclass = lerUint16(dados, pos);
+
+    for (int i = 0; i < cabecalho.ancount; ++i) {
+        string nome = lerNome(dados, pos);
+        uint16_t tipo   = lerUint16(dados, pos);
+        uint16_t classe = lerUint16(dados, pos);
+        uint32_t ttl    = lerUint32(dados, pos); // tempo que o dado pode ficar armazenado em cache
+        uint16_t rdlen  = lerUint16(dados, pos); // tamanho da resposta
+
+        cout << "Nome: " << nome << "  Tipo: " << tipo
+             << "  Classe: " << classe << "  TTL: " << ttl << endl;
+
+        if (tipo == 1 && rdlen == 4) {
+            cout << "Endereço: "
+                 << (int)dados[pos] << "."
+                 << (int)dados[pos + 1] << "."
+                 << (int)dados[pos + 2] << "."
+                 << (int)dados[pos + 3] << endl;
+        }
+        pos += rdlen;
+        cout << "---------------------------\n";
+    }
+
 }
