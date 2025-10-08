@@ -33,7 +33,14 @@ public:
     void parseResposta(const std::vector<uint8_t>& dados);
 
     void imprimirResposta();
+      
+    private:
+        void addUint16(std::vector<uint8_t>& pacote, uint16_t valor);
+        void addPergunta(std::vector<uint8_t>& pacote); 
 
 };
 
 #endif 
+
+
+
