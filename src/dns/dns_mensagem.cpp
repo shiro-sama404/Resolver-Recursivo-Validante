@@ -1,3 +1,4 @@
+/* Còdigo Fernanda*/
 #include "dns_mensagem.h"
 #include <iostream>
 #include <vector>
@@ -24,7 +25,7 @@ void DNSMensagem::configurarConsulta(const string& nome, uint16_t tipo) {
     pergunta.qname = nome;
     pergunta.qtype = tipo;
     pergunta.qclass = 1;      
-    cabecalho.id = rand() % 65536;  
+    cabecalho.id = rand() % 65536; 
 }
 
 
@@ -70,4 +71,48 @@ void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
     pacote.push_back(0);
     addUint16(pacote, pergunta.qtype);
     addUint16(pacote, pergunta.qclass);
+}
+
+
+uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
+    uint16_t valor = 0;
+
+    for (int i = 0; i < 2; ++i) {
+        valor = (valor << 8) | dados[pos + i];
+    }
+
+    pos += 2;
+    return valor;
+}
+
+// criei uma função diferente para ler dados de 32 bits porque ele só é lido uma vez
+// se fosse criar uma função geral, teria que ficar convertendo os dados de 16 bits toda vez que chamasse
+// afinal, 16 bits cabem em 32, mas 32 não cabem em 16
+
+uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
+    uint32_t valor = 0;
+
+    for (int i = 0; i < 4; ++i) {
+        valor = (valor << 8) | dados[pos + i];
+    }
+
+    pos += 4;
+    return valor;
+}
+
+string lerNome(const vector<uint8_t>& dados, size_t& pos) {
+    string nome;
+
+    while (pos < dados.size()) {
+        uint8_t len = dados[pos++];
+
+        if (len == 0) break;
+
+        if (!nome.empty()) 
+            nome += '.';
+
+        for (int i = 0; i < len; ++i)
+            nome += static_cast<char>(dados[pos++]);
+    }
+    return nome;
 }
