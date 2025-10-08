@@ -20,6 +20,14 @@ DNSMensagem::DNSMensagem() {
     pergunta.qclass = 1;  
 }
 
+void DNSMensagem::configurarConsulta(const string& nome, uint16_t tipo) {
+    pergunta.qname = nome;
+    pergunta.qtype = tipo;
+    pergunta.qclass = 1;      
+    cabecalho.id = rand() % 65536;  
+}
+
+
 // Função auxiliar 
 void DNSMensagem::addUint16(vector<uint8_t>& pacote, uint16_t valor) {
     pacote.push_back(valor >> 8);     
