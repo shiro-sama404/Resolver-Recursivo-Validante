@@ -1,3 +1,4 @@
+/* Còdigo Fernanda*/
 #ifndef DNSMENSAGEM_H
 #define DNSMENSAGEM_H
 
@@ -33,6 +34,8 @@ public:
     std::vector<uint8_t> montarQuery();
 
     void parseResposta(const std::vector<uint8_t>& dados);
+
+    vector<RegistroRecursos> respostas; // armazena todas as respostas da consulta
 
     void imprimirResposta();
       
