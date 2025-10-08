@@ -158,3 +158,18 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
     }
 
 }
+
+void DNSMensagem::imprimirResposta() {
+    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "ID:        " << cabecalho.id << endl;
+    cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
+    cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
+    cout << "ANCOUNT:   " << cabecalho.ancount << endl;
+    cout << "NSCOUNT:   " << cabecalho.nscount << endl;
+    cout << "ARCOUNT:   " << cabecalho.arcount << endl;
+
+    cout << "\n========= PERGUNTA =========\n";
+    cout << "Domínio:   " << pergunta.qname << endl;
+    cout << "Tipo:      " << pergunta.qtype << endl;
+    cout << "Classe:    " << pergunta.qclass << endl;
+}
