@@ -71,7 +71,6 @@ private:
     void decodeMX(ResourceRecords& rr);
     void decodeRRSIG(ResourceRecords& rr);
     void decodeSOA(ResourceRecords& rr);
-    void decodeSRV(ResourceRecords& rr);
     void decodeTXT(ResourceRecords& rr);
     void decodeOPT(ResourceRecords& rr);
 };

@@ -294,28 +294,46 @@ void DNSMensagem::decodeSOA(ResourceRecords& rr) {
 }
 
 void DNSMensagem::decodeMX(ResourceRecords& rr) {
+
     if (rr.rdlen < 3) {
+
         rr.resposta_parser = "MX inválido";
         return;
+
     }
+
     uint16_t preferencia = (rr.rdata[0] << 8) | rr.rdata[1]; // quanto menor o numero maior a prioridade
+
     size_t pos_local = 2;
+
     std::string destino = lerNome(rr.rdata, pos_local);
+
     rr.resposta_parser = "Preference: " + std::to_string(preferencia) + ", Exchange: " + destino;
+
 }
 
-
 void DNSMensagem::decodeTXT(ResourceRecords& rr) {
+
     std::string txt;
     size_t pos_local = 0;
+
     while (pos_local < rr.rdata.size()) {
+
         uint8_t len = rr.rdata[pos_local++];
-        if (pos_local + len > rr.rdata.size()) break;
-        if (!txt.empty()) txt += " ";
+
+        if (pos_local + len > rr.rdata.size()) 
+            break;
+        
+        if (!txt.empty()) 
+            txt += " ";
+        
         txt += std::string(rr.rdata.begin() + pos_local, rr.rdata.begin() + pos_local + len);
+        
         pos_local += len;
     }
+
     rr.resposta_parser = txt;
+
 }
 
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
