@@ -126,7 +126,7 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     while (pos < dados.size()) {
         uint8_t len = dados[pos];
 
-        
+
         if ((len & 0xC0) == 0xC0) {
             if (pos + 1 >= dados.size())
                 throw std::runtime_error("Erro ao ler ponteiro de nome DNS");
@@ -298,12 +298,31 @@ void DNSMensagem::decodeTXT(ResourceRecords& rr) {
 
 void DNSMensagem::decodeOPT(ResourceRecords& rr) {
 
+    if (rr.rdata.size() < 3) {
+        rr.resposta_parser = "OPT RR inválido (dados insuficientes)";
+        return;
+    }
+
+    uint32_t ttl = rr.ttl;
+    uint8_t ext_rcode = (ttl >> 24) & 0xFF;
+    uint8_t version   = (ttl >> 16) & 0xFF;
+    uint16_t z        = ttl & 0xFFFF;
+
     edns_udp_size = rr.classe; //tamanho do dado
-    edns_version  = rr.rdata[0]; 
-    edns_z        = (rr.rdata[1] << 8) | rr.rdata[2]; 
+    edns_version  = version;
+    edns_z        = z;
    
-    rr.resposta_parser = "OPT RR (EDNS), UDP size: " + std::to_string(edns_udp_size);
-    size_t pos = 3;
+    rr.resposta_parser = "OPT RR (EDNS), UDP size=" + std::to_string(edns_udp_size) +
+                         ", version=" + std::to_string(edns_version);
+
+    uint8_t ext_rcode = (rr.rdata[0] & 0xF0) >> 4; // exemplo de extração
+    if (ext_rcode != 0) {
+        cout << "Erro EDNS: " << (int)ext_rcode << endl;
+    }
+
+
+
+    size_t pos = 0;
     
     while (pos + 4 <= rr.rdata.size()) {
         EDNSOption opt;
@@ -341,6 +360,9 @@ ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size
     rr.classe = lerUint16(dados, pos);
     rr.ttl    = lerUint32(dados, pos);
     rr.rdlen  = lerUint16(dados, pos);
+
+    if (pos + rr.rdlen > dados.size())
+    throw std::runtime_error("Erro: RDLength ultrapassa tamanho do pacote DNS");
 
     rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
     pos += rr.rdlen;
