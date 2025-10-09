@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
                     DNSClient client;
                     uint16_t qtype = qtype_to_uint16(args.get_qtype());
                     
-                    vector<uint8_t> resultado_bytes = client.resolve(args.get_name(), qtype);
+                    vector<uint8_t> resultado_bytes = client.resolvedor(args.get_name(), qtype);
                     
                     if (!resultado_bytes.empty()) 
                     {
