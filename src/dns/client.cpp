@@ -1,4 +1,5 @@
 #include "client.h"
+#include "dns_mensagem.h" 
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -66,25 +67,106 @@ std::vector<uint8_t> DNSClient::send_recv_udp(
 }
 
 
-std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype) {
-    // Lógica recursiva
-    // Teste:
-    cout << "Iniciando resolução para " << name << " (QTYPE: " << qtype << ")" << endl;
+std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype) 
+{
+    vector<string> nameservers = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
+    
+    string nome_a_resolver = name;
 
-    DNSMensagem msg;
-    msg.configurarConsulta(name, qtype);
-    vector<uint8_t> query = msg.montarQuery();
+    for (int i = 0; i < 30; ++i) 
+    {
+        cout << "--- Iteração " << i+1 << ": Resolvendo " << nome_a_resolver << " usando NS: " << nameservers[0] << " ---" << endl;
 
-    const string root_ip = "198.41.0.4";
-    const uint16_t root_port = 53;
+        DNSMensagem consulta_msg;
+        consulta_msg.configurarConsulta(nome_a_resolver, qtype);
+        vector<uint8_t> query = consulta_msg.montarQuery();
 
-    try {
-        vector<uint8_t> resposta_bytes = send_recv_udp(query, root_ip, root_port, 5);
-        cout << "Resposta do Root Server recebida. Tamanho: " << resposta_bytes.size() << " bytes." << endl;
-        // falta a função msg.parseResposta(resposta_bytes) para decodificar
-        return resposta_bytes;
-    } catch (const exception& e) {
-        cerr << "ERRO NA COMUNICAÇÃO: " << e.what() << endl;
+        vector<uint8_t> resposta_bytes;
+        try 
+        {
+            resposta_bytes = send_recv_udp(query, nameservers[0], 53, 5);
+        } catch (const exception& e) 
+        {
+            cerr << "ERRO NA COMUNICAÇÃO com " << nameservers[0] << ": " << e.what() << endl;
+            
+            if (nameservers.size() > 1) 
+            {
+                nameservers.erase(nameservers.begin());
+                continue;
+            }
+            return {}; 
+        }
+
+        DNSMensagem resposta_msg;
+        resposta_msg.parseResposta(resposta_bytes); /
+        resposta_msg.imprimirResposta(); 
+
+        if (resposta_msg.cabecalho.ancount > 0) //Se contiver a resposta
+        {
+            for (const auto& rr : resposta_msg.respostas) 
+            {
+                if (rr.tipo == qtype) 
+                { 
+                    cout << "Resposta final encontrada." << endl;
+                    return resposta_bytes; 
+                }
+                if (rr.tipo == 5) 
+                {
+                    nome_a_resolver = rr.resposta_parser; 
+                    cout << "Redirecionando CNAME para: " << nome_a_resolver << endl;
+                    nameservers = {"198.41.0.4"};
+                    goto proxima_iteracao; 
+                }
+            }
+        }
+        if (resposta_msg.cabecalho.nscount > 0) //Se a resposta estiver na seção de autoridade
+        {
+            vector<string> proximos_nameservers_ips;
+
+            for (const auto& rr_ns : resposta_msg.autoridades) 
+            {
+                if (rr_ns.tipo == 2) 
+                { 
+                    string ns_hostname = rr_ns.resposta_parser;
+                    
+                    cout << "Delegação para: " << ns_hostname << ". Resolvendo o IP..." << endl;
+
+                    DNSClient resolver_auxiliar; 
+                    vector<uint8_t> ip_ns_bytes = resolver_auxiliar.resolve(ns_hostname, 1);
+            
+                     if (!ip_ns_bytes.empty()) 
+                    {
+                        DNSMensagem ip_ns_msg;
+                       
+                        ip_ns_msg.parseResposta(ip_ns_bytes);
+                       
+                        if (ip_ns_msg.cabecalho.ancount > 0) 
+                        {                
+                           proximos_nameservers_ips.push_back(ip_ns_msg.respostas[0].resposta_parser);
+                           cout << "IP de " << ns_hostname << " encontrado: " << ip_ns_msg.respostas[0].resposta_parser << endl;
+                        }
+                    }
+                }
+            }       
+            if (!proximos_nameservers_ips.empty())
+            {
+                nameservers = proximos_nameservers_ips;
+                continue; 
+            }
+
+        }
+        if ((resposta_msg.cabecalho.flags & 0x000F) == 3) // Em caso de NXDOMAIN 
+        {
+            cout << "Domínio não encontrado." << endl;
+            return resposta_bytes; 
+        }
+        
+        cout << "A resposta não foi encontrada ou não foi possível seguir a delegação." << endl;
         return {};
+
+        proxima_iteracao:; 
     }
+
+    cout << "O Limite de iterações foi atingido." << endl;
+    return {};
 }
