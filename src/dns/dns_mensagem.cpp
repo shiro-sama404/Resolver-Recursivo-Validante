@@ -168,6 +168,50 @@ void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
     pergunta.qclass = lerUint16(dados, pos);
 }
 
+// funçoes de decodificaçao
+
+void DNSMensagem::decodeA(ResourceRecords& rr) {
+    if (rr.rdlen == 4) {
+        rr.resposta_parser = std::to_string(rr.rdata[0]) + "." +
+                             std::to_string(rr.rdata[1]) + "." +
+                             std::to_string(rr.rdata[2]) + "." +
+                             std::to_string(rr.rdata[3]);
+    } else {
+        rr.resposta_parser = "Registro A inválido";
+    }
+}
+
+void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
+    if (rr.rdlen == 16) {
+        char buf[40];
+        sprintf(buf, "%x:%x:%x:%x:%x:%x:%x:%x",
+                (rr.rdata[0] << 8) | rr.rdata[1],
+                (rr.rdata[2] << 8) | rr.rdata[3],
+                (rr.rdata[4] << 8) | rr.rdata[5],
+                (rr.rdata[6] << 8) | rr.rdata[7],
+                (rr.rdata[8] << 8) | rr.rdata[9],
+                (rr.rdata[10] << 8) | rr.rdata[11],
+                (rr.rdata[12] << 8) | rr.rdata[13],
+                (rr.rdata[14] << 8) | rr.rdata[15]);
+        rr.resposta_parser = std::string(buf);
+    } else {
+        rr.resposta_parser = "Registro AAAA inválido";
+    }
+}
+
+void DNSMensagem::decodeCNAME(ResourceRecords& rr) {
+    size_t pos_local = 0;
+    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+}
+
+// descobre quem é o servidor autoritativo do dominio
+// ou seja, dada uma URL
+// ele descobre pra quem tem que perguntar para descobrir o IP
+void DNSMensagem::decodeNS(ResourceRecords& rr) {
+    size_t pos_local = 0;
+    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+}
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i) {
         ResourceRecords rr;
