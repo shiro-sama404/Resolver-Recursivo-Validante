@@ -106,16 +106,20 @@ uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
     return valor;
 }
 
-
 string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     string nome;
     size_t pos_original = pos;
     bool pular_pos = false;
 
     while (pos < dados.size()) {
+        if (pos >= dados.size())
+            throw std::runtime_error("Erro ao ler nome: pacote DNS truncado");
         uint8_t len = dados[pos];
 
         if ((len & 0xC0) == 0xC0) {
+            if (pos >= dados.size())
+                throw std::runtime_error("Erro ao ler ponteiro de nome DNS");
+
             if (pos + 1 >= dados.size()) 
                 break;
             
@@ -147,6 +151,7 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     
     return nome;
 }
+
 
 void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
     if (dados.size() < 12) {
