@@ -168,6 +168,65 @@ void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
     pergunta.qclass = lerUint16(dados, pos);
 }
 
+void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+    for (int i = 0; i < count; ++i) {
+        ResourceRecords rr;
+        rr.nome   = lerNome(dados, pos);
+        rr.tipo   = lerUint16(dados, pos);
+        rr.classe = lerUint16(dados, pos);
+        rr.ttl    = lerUint32(dados, pos);
+        rr.rdlen  = lerUint16(dados, pos);
+
+        rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
+
+        switch (rr.tipo) {
+            case 1:  
+                decodeA(rr);
+                break;
+            case 2:  
+                decodeNS(rr);
+                break;
+            case 5:  
+                decodeCNAME(rr);
+                break;
+            case 6:  
+                decodeSOA(rr);
+                break;
+            case 15: 
+                decodeMX(rr);
+                break;
+            case 16:  
+                decodeTXT(rr); 
+                break;
+            case 28: 
+                decodeAAAA(rr);
+                break;
+            case 33:  
+                decodeSRV(rr); 
+                break;
+            case 41: 
+                decodeOPT(rr);
+                break;
+            case 43: 
+                decodeDS(rr);
+                break;
+            case 46: 
+                decodeRRSIG(rr);
+                break;
+            case 48: 
+                decodeDNSKEY(rr);
+                break;
+            default:
+                rr.resposta_parser = "Tipo de registro não tratado: " + std::to_string(rr.tipo);
+                break;
+        }
+
+        pos += rr.rdlen;
+        respostas.push_back(rr);
+        cout << "---------------------------\n";
+    }
+}
+
 
 void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
    if (dados.size() < 12) {
