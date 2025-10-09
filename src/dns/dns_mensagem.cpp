@@ -369,6 +369,9 @@ void DNSMensagem::decodeOPT(ResourceRecords& rr) {
 }
 
 
+void DNSMensagem::decodeDS(ResourceRecords& rr) {
+    rr.resposta_parser = "Registro DS (Delegation Signer), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+}
 
 
 
