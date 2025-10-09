@@ -199,6 +199,10 @@ void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
     }
 }
 
+void DNSMensagem::decodeCNAME(ResourceRecords& rr) {
+    size_t pos_local = 0;
+    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+}
 
 
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
