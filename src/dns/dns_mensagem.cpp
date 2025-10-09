@@ -181,6 +181,25 @@ void DNSMensagem::decodeA(ResourceRecords& rr) {
     }
 }
 
+void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
+    if (rr.rdlen == 16) {
+        char buf[40];
+        sprintf(buf, "%x:%x:%x:%x:%x:%x:%x:%x",
+                (rr.rdata[0] << 8) | rr.rdata[1],
+                (rr.rdata[2] << 8) | rr.rdata[3],
+                (rr.rdata[4] << 8) | rr.rdata[5],
+                (rr.rdata[6] << 8) | rr.rdata[7],
+                (rr.rdata[8] << 8) | rr.rdata[9],
+                (rr.rdata[10] << 8) | rr.rdata[11],
+                (rr.rdata[12] << 8) | rr.rdata[13],
+                (rr.rdata[14] << 8) | rr.rdata[15]);
+        rr.resposta_parser = std::string(buf);
+    } else {
+        rr.resposta_parser = "Registro AAAA inválido";
+    }
+}
+
+
 
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i) {
