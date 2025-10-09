@@ -168,6 +168,20 @@ void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
     pergunta.qclass = lerUint16(dados, pos);
 }
 
+// funçoes de decodificaçao
+
+void DNSMensagem::decodeA(ResourceRecords& rr) {
+    if (rr.rdlen == 4) {
+        rr.resposta_parser = std::to_string(rr.rdata[0]) + "." +
+                             std::to_string(rr.rdata[1]) + "." +
+                             std::to_string(rr.rdata[2]) + "." +
+                             std::to_string(rr.rdata[3]);
+    } else {
+        rr.resposta_parser = "Registro A inválido";
+    }
+}
+
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i) {
         ResourceRecords rr;
