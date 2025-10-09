@@ -30,13 +30,15 @@ struct RegistroRecursos {
     uint32_t ttl;
     uint16_t rdlen;
     std::vector<uint8_t> rdata; 
+    std::string resposta_parser; // para guardar a resposta decodificada do parser para acessar mais tarde
 };
 
 class DNSMensagem {
 public:
     CabecalhoDNS cabecalho;
     PerguntaDNS pergunta;
-    std::vector<RegistroRecursos> respostas;
+    
+    //uint16_t edns_udp_size = 512;      
 
     DNSMensagem();
     
@@ -44,6 +46,10 @@ public:
     
     std::vector<uint8_t> montarQuery();
     
+    std::vector<RegistroRecursos> respostas;
+    std::vector<RegistroRecursos> autoridades;
+    std::vector<RegistroRecursos> adicionais;
+
     void parseResposta(const std::vector<uint8_t>& dados);
     
     void imprimirResposta();
@@ -54,5 +60,8 @@ private:
 };
 
 #endif
+
+
+
 
 
