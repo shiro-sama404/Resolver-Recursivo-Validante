@@ -117,6 +117,7 @@ uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
     return valor;
 }
 
+
 string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     string nome;
     size_t pos_original = pos;
@@ -336,89 +337,86 @@ void DNSMensagem::decodeDNSKEY(ResourceRecords& rr) {
 }
 
 
-void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
-    for (int i = 0; i < count; ++i) {
-        ResourceRecords rr;
-        rr.nome   = lerNome(dados, pos);
-        rr.tipo   = lerUint16(dados, pos);
-        rr.classe = lerUint16(dados, pos);
-        rr.ttl    = lerUint32(dados, pos);
-        rr.rdlen  = lerUint16(dados, pos);
+ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size_t& pos) {
+    ResourceRecords rr;
 
-        rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
+    rr.nome   = lerNome(dados, pos);
+    rr.tipo   = lerUint16(dados, pos);
+    rr.classe = lerUint16(dados, pos);
+    rr.ttl    = lerUint32(dados, pos);
+    rr.rdlen  = lerUint16(dados, pos);
 
-        switch (rr.tipo) {
+    rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
+    pos += rr.rdlen;
 
-            case 1:  
-                decodeA(rr);
-                break;
+    // Decodifica conforme o tipo do RR
+    switch (rr.tipo) {
+        case 1:  
+            decodeA(rr);
+            break;
 
-            case 2:  
-                decodeNS(rr);
-                break;
+        case 2:  
+            decodeNS(rr);
+            break;
 
-            case 5:  
-                decodeCNAME(rr);
-                break;
+        case 5:  
+            decodeCNAME(rr);
+            break;
+           
+        case 6:  
+            decodeSOA(rr);
+            break;
+           
+        case 15: 
+            decodeMX(rr);
+            break;
             
-            case 6:  
-                decodeSOA(rr);
-                break;
+        case 16:  
+            decodeTXT(rr); 
+            break;
             
-            case 15: 
-                decodeMX(rr);
-                break;
+        case 28: 
+            decodeAAAA(rr);
+            break;
             
-            case 16:  
-                decodeTXT(rr); 
-                break;
+        case 41: 
+            decodeOPT(rr);
+            break;
             
-            case 28: 
-                decodeAAAA(rr);
-                break;
-            
-            case 41: 
-                decodeOPT(rr);
-                break;
-            
-            case 43: 
-                decodeDS(rr);
-                break;
-            
-            case 46: 
-                decodeRRSIG(rr);
-                break;
-            
-            case 48: 
-                decodeDNSKEY(rr);
-                break;
-            
-            default:
-            
-                rr.resposta_parser = "Tipo de registro não tratado: " + std::to_string(rr.tipo);
-                break;
+        case 43: 
+            decodeDS(rr);
+            break;
+           
+        case 46: 
+            decodeRRSIG(rr);
+            break;
+           
+        case 48: 
+            decodeDNSKEY(rr);
+            break;
+
+        default: 
+            rr.resposta_parser = "Tipo de Registro não suportado"; 
+            break;
+    
         }
 
-        pos += rr.rdlen;
-        respostas.push_back(rr);
-        cout << "---------------------------\n";
-    }
+    return rr;
+}
+
+void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+    for (int i = 0; i < count; ++i)
+        respostas.push_back(lerRegistro(dados, pos));
 }
 
 void DNSMensagem::lerAutoridade(const std::vector<uint8_t>& dados, size_t& pos, int count) {
-    for (int i = 0; i < count; ++i) {
-        ResourceRecords rr;
-        rr.nome   = lerNome(dados, pos);
-        rr.tipo   = lerUint16(dados, pos);
-        rr.classe = lerUint16(dados, pos);
-        rr.ttl    = lerUint32(dados, pos);
-        rr.rdlen  = lerUint16(dados, pos);
+    for (int i = 0; i < count; ++i)
+        autoridades.push_back(lerRegistro(dados, pos));
+}
 
-        rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
-        
-        pos += rr.rdlen;
-        autoridades.push_back(rr);
-    }
+void DNSMensagem::lerAdicional(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+    for (int i = 0; i < count; ++i)
+        adicionais.push_back(lerRegistro(dados, pos));
 }
 
 void DNSMensagem::parseResposta(const std::vector<uint8_t>& dados) {

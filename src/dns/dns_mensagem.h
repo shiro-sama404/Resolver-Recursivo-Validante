@@ -33,24 +33,15 @@ struct ResourceRecords {
     std::string resposta_parser; // para guardar a resposta decodificada do parser para acessar mais tarde
 };
 
-
-uint16_t edns_udp_size = 512; // tamanho negociado
-uint8_t  edns_version = 0; // versão
-uint16_t edns_z = 0; // campos reservados
-
 struct EDNSOption {
-    uint16_t code;
-    std::vector<uint8_t> data;
+        uint16_t code;
+        std::vector<uint8_t> data;
 };
-std::vector<EDNSOption> edns_options; // opções extras
-
 
 class DNSMensagem {
 public:
     CabecalhoDNS cabecalho;
-    PerguntaDNS pergunta;
-    
-    //uint16_t edns_udp_size = 512;      
+    PerguntaDNS pergunta;      
 
     DNSMensagem();
     
@@ -61,6 +52,9 @@ public:
     std::vector<ResourceRecords> respostas;
     std::vector<ResourceRecords> autoridades;
     std::vector<ResourceRecords> adicionais;
+
+
+    std::vector<EDNSOption> edns_options; // opções extras
 
     void parseResposta(const std::vector<uint8_t>& dados);
     
@@ -85,6 +79,11 @@ private:
     void decodeSOA(ResourceRecords& rr);
     void decodeTXT(ResourceRecords& rr);
     void decodeOPT(ResourceRecords& rr);
+
+    ResourceRecords lerRegistro(const std::vector<uint8_t>& dados, size_t& pos);
+    uint16_t edns_udp_size = 512; // tamanho negociado
+    uint8_t  edns_version = 0; // versão
+    uint16_t edns_z = 0; // campos reservados
 };
 
 #endif
