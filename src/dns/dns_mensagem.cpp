@@ -212,6 +212,35 @@ void DNSMensagem::decodeNS(ResourceRecords& rr) {
     rr.resposta_parser = lerNome(rr.rdata, pos_local);
 }
 
+void DNSMensagem::decodeSOA(ResourceRecords& rr) {
+    size_t pos_local = 0;
+    std::string mname = lerNome(rr.rdata, pos_local);
+    std::string rname = lerNome(rr.rdata, pos_local);
+    if (pos_local + 20 <= rr.rdata.size()) {
+        uint32_t serial  = (rr.rdata[pos_local] << 24) | (rr.rdata[pos_local+1] << 16) |
+                           (rr.rdata[pos_local+2] << 8) | rr.rdata[pos_local+3];
+        uint32_t refresh = (rr.rdata[pos_local+4] << 24) | (rr.rdata[pos_local+5] << 16) |
+                           (rr.rdata[pos_local+6] << 8) | rr.rdata[pos_local+7];
+        uint32_t retry   = (rr.rdata[pos_local+8] << 24) | (rr.rdata[pos_local+9] << 16) |
+                           (rr.rdata[pos_local+10] << 8) | rr.rdata[pos_local+11];
+        uint32_t expire  = (rr.rdata[pos_local+12] << 24) | (rr.rdata[pos_local+13] << 16) |
+                           (rr.rdata[pos_local+14] << 8) | rr.rdata[pos_local+15];
+        uint32_t minimum = (rr.rdata[pos_local+16] << 24) | (rr.rdata[pos_local+17] << 16) |
+                           (rr.rdata[pos_local+18] << 8) | rr.rdata[pos_local+19];
+
+        rr.resposta_parser = "MNAME: " + mname + ", RNAME: " + rname +
+                             ", SERIAL: " + std::to_string(serial) +
+                             ", REFRESH: " + std::to_string(refresh) +
+                             ", RETRY: " + std::to_string(retry) +
+                             ", EXPIRE: " + std::to_string(expire) +
+                             ", MINIMUM: " + std::to_string(minimum);
+    } else {
+        rr.resposta_parser = "SOA inválido";
+    }
+}
+
+
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i) {
         ResourceRecords rr;
