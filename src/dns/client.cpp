@@ -19,16 +19,20 @@ std::vector<uint8_t> DNSClient::send_recv_udp(
 {
     
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        throw runtime_error("Falha ao criar o socket UDP.");
+    
+    if (sockfd < 0) 
+    {
+        throw runtime_error("Nao foi possivel criar o socket UDP.");
     }
 
     struct timeval tv;
     tv.tv_sec = timeout_sec;
     tv.tv_usec = 0;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv)) < 0) {
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv)) < 0) 
+    {
         close(sockfd);
-        throw runtime_error("Falha ao configurar timeout no socket.");
+        throw runtime_error("Nao foi possivel configurar timeout no socket.");
     }
 
     struct sockaddr_in servaddr;
@@ -36,27 +40,28 @@ std::vector<uint8_t> DNSClient::send_recv_udp(
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(ns_port);
 
-    if (inet_pton(AF_INET, ns_ip.c_str(), &servaddr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, ns_ip.c_str(), &servaddr.sin_addr) <= 0) 
+    {
         close(sockfd);
-        throw invalid_argument("Endereço IP do servidor DNS inválido.");
+        throw invalid_argument("Endereço IP do servidor DNS invalido.");
     }
 
-    if (sendto(sockfd, query.data(), query.size(), 0, 
-               (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+    if (sendto(sockfd, query.data(), query.size(), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
+    {
         close(sockfd);
-        throw runtime_error("Falha ao enviar a consulta UDP (sendto).");
+        throw runtime_error("Nao foi possivel enviar a consulta UDP.");
     }
 
     
     vector<uint8_t> buffer(512); 
     socklen_t len = sizeof(servaddr);
-    ssize_t n = recvfrom(sockfd, buffer.data(), buffer.size(), 0, 
-                         (struct sockaddr *)&servaddr, &len);
+    ssize_t n = recvfrom(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr *)&servaddr, &len);
 
     
-    if (n < 0) {
+    if (n < 0) 
+    {
         close(sockfd);
-        throw runtime_error("Timeout ou erro de rede: Não foi recebida resposta.");
+        throw runtime_error("Sem resposta. Timeout ou erro de rede.");
     }
 
     buffer.resize(n);
@@ -75,7 +80,7 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
 
     for (int i = 0; i < 30; ++i) 
     {
-        cout << "--- Iteração " << i+1 << ": Resolvendo " << nome_a_resolver << " usando NS: " << nameservers[0] << " ---" << endl;
+        cout << "--- Iteracao " << i+1 << ": Resolvendo " << nome_a_resolver << " usando NS: " << nameservers[0] << " ---" << endl;
 
         DNSMensagem consulta_msg;
         consulta_msg.configurarConsulta(nome_a_resolver, qtype);
@@ -87,7 +92,7 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
             resposta_bytes = send_recv_udp(query, nameservers[0], 53, 5);
         } catch (const exception& e) 
         {
-            cerr << "ERRO NA COMUNICAÇÃO com " << nameservers[0] << ": " << e.what() << endl;
+            cerr << "Erro ao comunicar com " << nameservers[0] << ": " << e.what() << endl;
             
             if (nameservers.size() > 1) 
             {
@@ -129,7 +134,7 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
                 { 
                     string ns_hostname = rr_ns.resposta_parser;
                     
-                    cout << "Delegação para: " << ns_hostname << ". Resolvendo o IP..." << endl;
+                    cout << "Delegacao para: " << ns_hostname << ". Resolvendo o IP..." << endl;
 
                     DNSClient resolver_auxiliar; 
                     vector<uint8_t> ip_ns_bytes = resolver_auxiliar.resolve(ns_hostname, 1);
@@ -160,22 +165,22 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
                 for (const auto& rr : resposta_msg.autoridades) 
                     if (rr.tipo == 6) 
                     { 
-                        cout << "Não há dados para o tipo de registro solicitado nesse domínio." << endl;
+                        cout << "Nao ha dados para o tipo de registro solicitado nesse dominio." << endl;
                         return resposta_bytes; 
                     }
 
         if ((resposta_msg.cabecalho.flags & 0x000F) == 3) // Em caso de NXDOMAIN 
         {
-            cout << "Domínio não encontrado." << endl;
+            cout << "Dominio nao encontrado." << endl;
             return resposta_bytes; 
         }
         
-        cout << "A resposta não foi encontrada ou não foi possível seguir a delegação." << endl;
+        cout << "Resposta nao encontrada (ou delegacao nao seguida)." << endl;
         return {};
 
         proxima_iteracao:; 
     }
 
-    cout << "O Limite de iterações foi atingido." << endl;
+    cout << "O Limite de iteracoes foi atingido." << endl;
     return {};
 }
