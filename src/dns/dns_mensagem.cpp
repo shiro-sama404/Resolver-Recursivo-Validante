@@ -204,6 +204,13 @@ void DNSMensagem::decodeCNAME(ResourceRecords& rr) {
     rr.resposta_parser = lerNome(rr.rdata, pos_local);
 }
 
+// descobre quem é o servidor autoritativo do dominio
+// ou seja, dada uma URL
+// ele descobre pra quem tem que perguntar para descobrir o IP
+void DNSMensagem::decodeNS(ResourceRecords& rr) {
+    size_t pos_local = 0;
+    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+}
 
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i) {
