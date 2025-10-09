@@ -23,7 +23,7 @@ struct PerguntaDNS {
 };
 
 // ResourceRecurses
-struct RegistroRecursos {
+struct ResourceRecords {
     std::string nome;
     uint16_t tipo;
     uint16_t classe;
@@ -46,9 +46,9 @@ public:
     
     std::vector<uint8_t> montarQuery();
     
-    std::vector<RegistroRecursos> respostas;
-    std::vector<RegistroRecursos> autoridades;
-    std::vector<RegistroRecursos> adicionais;
+    std::vector<ResourceRecords> respostas;
+    std::vector<ResourceRecords> autoridades;
+    std::vector<ResourceRecords> adicionais;
 
     void parseResposta(const std::vector<uint8_t>& dados);
     
