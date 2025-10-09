@@ -100,20 +100,45 @@ uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
     return valor;
 }
 
+
 string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     string nome;
+    size_t pos_original = pos;
+    bool pular_pos = false;
 
     while (pos < dados.size()) {
-        uint8_t len = dados[pos++];
+        uint8_t len = dados[pos];
 
+        if ((len & 0xC0) == 0xC0) {
+            if (pos + 1 >= dados.size()) 
+                break;
+            
+            uint16_t offset = ((len & 0x3F) << 8) | dados[pos + 1];
+            pos += 2;
+            
+            if (!pular_pos) {
+                pos_original = pos;
+                pular_pos = true;
+            }
+            pos = offset;
+            continue;
+        }
+
+        pos++;
         if (len == 0) break;
 
-        if (!nome.empty()) 
+        if (!nome.empty())
             nome += '.';
 
         for (int i = 0; i < len; ++i)
             nome += static_cast<char>(dados[pos++]);
     }
+
+    if (!pular_pos) 
+        return nome;
+    
+    pos = pos_original;
+    
     return nome;
 }
 
@@ -125,6 +150,7 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
 
     size_t pos = 0;
 
+    // Cabeçalho
     cabecalho.id      = lerUint16(dados, pos);
     cabecalho.flags   = lerUint16(dados, pos);
     cabecalho.qdcount = lerUint16(dados, pos);
@@ -132,37 +158,35 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
     cabecalho.nscount = lerUint16(dados, pos);
     cabecalho.arcount = lerUint16(dados, pos);
 
-
+    // Perguntas
     pergunta.qname  = lerNome(dados, pos);
     pergunta.qtype  = lerUint16(dados, pos);
     pergunta.qclass = lerUint16(dados, pos);
 
-
-    respostas.clear(); 
+    // Respostas
     for (int i = 0; i < cabecalho.ancount; ++i) {
-        RegistroRecursos rr;
-        rr.nome   = lerNome(dados, pos);
-        rr.tipo   = lerUint16(dados, pos);
-        rr.classe = lerUint16(dados, pos);
-        rr.ttl    = lerUint32(dados, pos);
-        rr.rdlen  = lerUint16(dados, pos);
+        string nome = lerNome(dados, pos);
+        uint16_t tipo   = lerUint16(dados, pos);
+        uint16_t classe = lerUint16(dados, pos);
+        uint32_t ttl    = lerUint32(dados, pos);
+        uint16_t rdlen  = lerUint16(dados, pos);
 
-        rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
-        pos += rr.rdlen;
+        cout << "Nome: " << nome << "  Tipo: " << tipo
+             << "  Classe: " << classe << "  TTL: " << ttl << endl;
 
-        respostas.push_back(rr);
-
-        if (rr.tipo == 1 && rr.rdlen == 4) { // tipo A → IPv4
+        // Tipo A → IPv4
+        if (tipo == 1 && rdlen == 4) {
             cout << "Endereço: "
-                 << (int)rr.rdata[0] << "."
-                 << (int)rr.rdata[1] << "."
-                 << (int)rr.rdata[2] << "."
-                 << (int)rr.rdata[3] << endl;
+                 << (int)dados[pos] << "."
+                 << (int)dados[pos + 1] << "."
+                 << (int)dados[pos + 2] << "."
+                 << (int)dados[pos + 3] << endl;
         }
+
+        pos += rdlen;
         cout << "---------------------------\n";
     }
 }
-
 
 
 void DNSMensagem::imprimirResposta() {
