@@ -57,6 +57,23 @@ public:
 private:
     void addUint16(std::vector<uint8_t>& pacote, uint16_t valor);
     void addPergunta(std::vector<uint8_t>& pacote); 
+    void lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos);
+    void lerPergunta(const std::vector<uint8_t>& dados, size_t& pos);
+    void lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count);
+    void lerAutoridade(const std::vector<uint8_t>& dados, size_t& pos, int count);
+    void lerAdicional(const std::vector<uint8_t>& dados, size_t& pos, int count);
+    void decodeA(ResourceRecords& rr);
+    void decodeAAAA(ResourceRecords& rr);
+    void decodeCNAME(ResourceRecords& rr);
+    void decodeDS(ResourceRecords& rr);
+    void decodeNS(ResourceRecords& rr);
+    void decodeDNSKEY(ResourceRecords& rr);
+    void decodeMX(ResourceRecords& rr);
+    void decodeRRSIG(ResourceRecords& rr);
+    void decodeSOA(ResourceRecords& rr);
+    void decodeSRV(ResourceRecords& rr);
+    void decodeTXT(ResourceRecords& rr);
+    void decodeOPT(ResourceRecords& rr);
 };
 
 #endif
