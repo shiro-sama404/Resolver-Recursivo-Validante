@@ -373,6 +373,13 @@ void DNSMensagem::decodeDS(ResourceRecords& rr) {
     rr.resposta_parser = "Registro DS (Delegation Signer), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
 }
 
+void DNSMensagem::decodeRRSIG(ResourceRecords& rr) {
+    rr.resposta_parser = "RRSIG RR (assinatura DNSSEC), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+}
+
+void DNSMensagem::decodeDNSKEY(ResourceRecords& rr) {
+    rr.resposta_parser = "DNSKEY RR (chave pública), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+}
 
 
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
