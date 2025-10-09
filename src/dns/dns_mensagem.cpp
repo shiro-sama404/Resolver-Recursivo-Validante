@@ -35,21 +35,6 @@ void DNSMensagem::addUint16(vector<uint8_t>& pacote, uint16_t valor) {
     pacote.push_back(valor & 0xFF);   
 }
 
-vector<uint8_t> DNSMensagem::montarQuery() {
-    vector<uint8_t> pacote;
-
-    addUint16(pacote, cabecalho.id);
-    addUint16(pacote, cabecalho.flags);
-    addUint16(pacote, cabecalho.qdcount);
-    addUint16(pacote, cabecalho.ancount); // tamanho da resposta do servidor
-    addUint16(pacote, cabecalho.nscount);
-    addUint16(pacote, cabecalho.arcount);
-
-    addPergunta(pacote);
-
-    return pacote;
-}
-
 void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
     size_t inicio = 0;
     size_t ponto = 0;
@@ -72,6 +57,21 @@ void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
     pacote.push_back(0);
     addUint16(pacote, pergunta.qtype);
     addUint16(pacote, pergunta.qclass);
+}
+
+vector<uint8_t> DNSMensagem::montarQuery() {
+    vector<uint8_t> pacote;
+
+    addUint16(pacote, cabecalho.id);
+    addUint16(pacote, cabecalho.flags);
+    addUint16(pacote, cabecalho.qdcount);
+    addUint16(pacote, cabecalho.ancount); // tamanho da resposta do servidor
+    addUint16(pacote, cabecalho.nscount);
+    addUint16(pacote, cabecalho.arcount);
+
+    addPergunta(pacote);
+
+    return pacote;
 }
 
 
@@ -153,10 +153,25 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
 }
 
 
+void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
+    cabecalho.id      = lerUint16(dados, pos);
+    cabecalho.flags   = lerUint16(dados, pos);
+    cabecalho.qdcount = lerUint16(dados, pos);
+    cabecalho.ancount = lerUint16(dados, pos);
+    cabecalho.nscount = lerUint16(dados, pos);
+    cabecalho.arcount = lerUint16(dados, pos);
+}
+
+void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
+    pergunta.qname  = lerNome(dados, pos);
+    pergunta.qtype  = lerUint16(dados, pos);
+    pergunta.qclass = lerUint16(dados, pos);
+}
+
+
 void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
-    if (dados.size() < 12) {
-        cout << "Pacote DNS inválido (muito pequeno)." << endl;
-        return;
+   if (dados.size() < 12) {
+        throw std::runtime_error("Pacote DNS inválido (muito pequeno)");
     }
 
     size_t pos = 0;
