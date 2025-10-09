@@ -120,55 +120,51 @@ uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
 
 string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     string nome;
-    size_t pos_original = pos;
-    bool pular_pos = false;
+    size_t pos_original = pos;   
+    bool pular_pos = false;         
 
     while (pos < dados.size()) {
-        if (pos >= dados.size())
-            throw std::runtime_error("Erro ao ler nome: pacote DNS truncado");
-
         uint8_t len = dados[pos];
 
+        
         if ((len & 0xC0) == 0xC0) {
-
-            if (pos >= dados.size())
+            if (pos + 1 >= dados.size())
                 throw std::runtime_error("Erro ao ler ponteiro de nome DNS");
 
-            if (pos + 1 >= dados.size()) 
-                break;
-            
             uint16_t offset = ((len & 0x3F) << 8) | dados[pos + 1];
             pos += 2;
-            
+
             if (!pular_pos) {
-                pos_original = pos;
+                pos_original = pos;  
                 pular_pos = true;
             }
 
-            pos = offset;
+            pos = offset;  
             continue;
-
         }
 
-        pos++;
-
-        if (len == 0) 
-            break;
+        pos++; 
+        if (len == 0)
+            break; 
 
         if (!nome.empty())
             nome += '.';
 
-        for (int i = 0; i < len; ++i)
+        if (pos + len > dados.size())
+            throw std::runtime_error("Erro ao ler nome: pacote DNS truncado");
+
+        for (int i = 0; i < len; ++i) {
             nome += static_cast<char>(dados[pos++]);
+        }
     }
 
-    if (!pular_pos) 
-        return nome;
-    
-    pos = pos_original;
+    if (pular_pos) 
+        pos = pos_original;  
+
     return nome;
 }
 
+      
 
 void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
     cabecalho.id      = lerUint16(dados, pos);
