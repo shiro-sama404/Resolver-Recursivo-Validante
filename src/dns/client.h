@@ -16,8 +16,6 @@ public:
                                        const std::string& ns_ip, 
                                        uint16_t ns_port, 
                                        int timeout_sec);
-
-private:
    
 };
 
