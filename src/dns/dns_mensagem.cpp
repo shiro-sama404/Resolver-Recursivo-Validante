@@ -336,6 +336,42 @@ void DNSMensagem::decodeTXT(ResourceRecords& rr) {
 
 }
 
+void DNSMensagem::decodeOPT(ResourceRecords& rr) {
+
+    edns_udp_size = rr.classe; //tamanho do dado
+    edns_version  = rr.rdata[0]; 
+    edns_z        = (rr.rdata[1] << 8) | rr.rdata[2]; 
+   
+    rr.resposta_parser = "OPT RR (EDNS), UDP size: " + std::to_string(edns_udp_size);
+    
+    
+    size_t pos = 3;
+    
+    while (pos + 4 <= rr.rdata.size()) {
+    
+        EDNSOption opt;
+    
+        opt.code = (rr.rdata[pos] << 8) | rr.rdata[pos+1];
+    
+        uint16_t len = (rr.rdata[pos+2] << 8) | rr.rdata[pos+3];
+    
+        pos += 4;
+    
+        if (pos + len > rr.rdata.size()) 
+            break;
+    
+        opt.data.assign(rr.rdata.begin() + pos, rr.rdata.begin() + pos + len);
+        
+        edns_options.push_back(opt);
+        
+        pos += len;
+    }
+}
+
+
+
+
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
 
     for (int i = 0; i < count; ++i) {
@@ -377,10 +413,6 @@ void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, i
             
             case 28: 
                 decodeAAAA(rr);
-                break;
-            
-            case 33:  
-                decodeSRV(rr); 
                 break;
             
             case 41: 
