@@ -11,9 +11,9 @@ class DNSClient
 {
     public:
 
-    std::vector<uint8_t> resolve(const std::string& nome, uint16_t valor);
+    std::vector<uint8_t> resolvedor(const std::string& nome, uint16_t valor);
 
-    std::vector<uint8_t> send_recv_udp(const std::vector<uint8_t>& query, const std::string& IPns, uint16_t porta, int tempoTO);
+    std::vector<uint8_t> udp(const std::vector<uint8_t>& query, const std::string& IPns, uint16_t porta, int tempoTO);
    
 };
 
