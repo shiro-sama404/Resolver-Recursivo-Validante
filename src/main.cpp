@@ -1,8 +1,8 @@
 #include "server/cache_daemon.h"
 #include "cli/arguments.h"
-#include <iostream>
-#include "dns/client.h"     
 #include "dns/dns_mensagem.h" 
+#include "dns/client.h"     
+#include <iostream>
 #include <unordered_map>     
 
 using namespace std;

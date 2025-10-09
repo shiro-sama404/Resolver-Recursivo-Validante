@@ -9,11 +9,11 @@
 
 class DNSClient 
 {
-public:
+    public:
 
-    std::vector<uint8_t> resolve(const std::string& name, uint16_t qtype);
+    std::vector<uint8_t> resolve(const std::string& nome, uint16_t valor);
 
-    std::vector<uint8_t> send_recv_udp(const std::vector<uint8_t>& query, const std::string& ns_ip, uint16_t ns_port, int timeout_sec);
+    std::vector<uint8_t> send_recv_udp(const std::vector<uint8_t>& query, const std::string& IPns, uint16_t porta, int tempoTO);
    
 };
 

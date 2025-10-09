@@ -1,184 +1,179 @@
 #include "client.h"
 #include "dns_mensagem.h" 
 #include <iostream>
+#include <cstring>
+#include <sys/time.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdexcept>
-#include <cstring>
-#include <sys/time.h> 
 
 using namespace std;
 
-std::vector<uint8_t> DNSClient::send_recv_udp(
-    const std::vector<uint8_t>& query, 
-    const std::string& ns_ip, 
-    uint16_t ns_port, 
-    int timeout_sec) 
+std::vector<uint8_t> DNSClient::send_recv_udp(const std::vector<uint8_t>& pctC, const std::string& nomeSer, uint16_t pServ, int tempoTO) 
 {
+
+    int descritor = socket(AF_INET, SOCK_DGRAM, 0);
     
-    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (descritor < 0) 
+        throw runtime_error("Desculpe, mas nao foi possivel criar o socket UDP.");
     
-    if (sockfd < 0) 
-    {
-        throw runtime_error("Nao foi possivel criar o socket UDP.");
+
+    struct timeval tEspera;
+    tEspera.tv_sec = tempoTO;
+    tEspera.tv_usec = 0;
+    
+    int resultadoOpt = setsockopt(descritor, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tEspera, sizeof(tEspera));
+    if (resultadoOpt < 0) {
+        close(descritor);
+        throw runtime_error("\nNao foi possivel configurar timeout no socket.");
     }
 
-    struct timeval tv;
-    tv.tv_sec = timeout_sec;
-    tv.tv_usec = 0;
+    struct sockaddr_in endServ;
+    memset(&endServ, 0, sizeof(endServ));
+    endServ.sin_family = AF_INET;
+    endServ.sin_port = htons(pServ);
+
+    int resultadoPton = inet_pton(AF_INET, nomeSer.c_str(), &endServ.sin_addr);
+
+    if (resultadoPton <= 0) 
+    {
+        close(descritor);
+        throw invalid_argument("\nEndereço IP do servidor DNS invalido.");
+    }
+
+    int resultadoSend = sendto(descritor, pctC.data(), pctC.size(), 0, (const struct sockaddr *)&endServ, sizeof(endServ));
+
+    if (resultadoSend < 0) {
+        close(descritor);
+        throw runtime_error("\nNao foi possivel enviar a consulta UDP.");
+    }
+
+    vector<uint8_t> bufferR(512); 
+    socklen_t tamEnd = sizeof(endServ);
     
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv)) < 0) 
-    {
-        close(sockfd);
-        throw runtime_error("Nao foi possivel configurar timeout no socket.");
+    ssize_t bytesR = recvfrom(descritor, bufferR.data(), bufferR.size(), 0, (struct sockaddr *)&endServ, &tamEnd);
+
+    if (bytesR < 0) {
+        close(descritor);
+        throw runtime_error("\nSem resposta. Houve Timeout ou um erro de rede.");
     }
 
-    struct sockaddr_in servaddr;
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(ns_port);
-
-    if (inet_pton(AF_INET, ns_ip.c_str(), &servaddr.sin_addr) <= 0) 
-    {
-        close(sockfd);
-        throw invalid_argument("Endereço IP do servidor DNS invalido.");
-    }
-
-    if (sendto(sockfd, query.data(), query.size(), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
-    {
-        close(sockfd);
-        throw runtime_error("Nao foi possivel enviar a consulta UDP.");
-    }
-
-    
-    vector<uint8_t> buffer(512); 
-    socklen_t len = sizeof(servaddr);
-    ssize_t n = recvfrom(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr *)&servaddr, &len);
-
-    
-    if (n < 0) 
-    {
-        close(sockfd);
-        throw runtime_error("Sem resposta. Timeout ou erro de rede.");
-    }
-
-    buffer.resize(n);
-
-    close(sockfd); 
-
-    return buffer;
+    bufferR.resize(bytesR);
+    close(descritor); 
+    return bufferR;
 }
 
 
 std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype) 
 {
-    vector<string> nameservers = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
+    vector<string> nomeServ = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
     
-    string nome_a_resolver = name;
+    string nomeR = name;
 
     for (int i = 0; i < 30; ++i) 
     {
-        cout << "--- Iteracao " << i+1 << ": Resolvendo " << nome_a_resolver << " usando NS: " << nameservers[0] << " ---" << endl;
+        cout << "--- Iteracao " << i+1 << ": Resolvendo " << nomeR << " usando NS: " << nomeServ[0] << " ---" << endl;
 
-        DNSMensagem consulta_msg;
-        consulta_msg.configurarConsulta(nome_a_resolver, qtype);
-        vector<uint8_t> query = consulta_msg.montarQuery();
+        DNSMensagem msgConsulta;
+        msgConsulta.configurarConsulta(nomeR, qtype);
+        vector<uint8_t> pctC = msgConsulta.montarQuery();
 
-        vector<uint8_t> resposta_bytes;
+        vector<uint8_t> bytesResp;
+        
         try 
         {
-            resposta_bytes = send_recv_udp(query, nameservers[0], 53, 5);
+            bytesResp = send_recv_udp(pctC, nomeServ[0], 53, 5);
         } catch (const exception& e) 
         {
-            cerr << "Erro ao comunicar com " << nameservers[0] << ": " << e.what() << endl;
+            cerr << "Erro ao comunicar com " << nomeServ[0] << ": " << e.what() << endl;
             
-            if (nameservers.size() > 1) 
+            if (nomeServ.size() > 1) 
             {
-                nameservers.erase(nameservers.begin());
+                nomeServ.erase(nomeServ.begin());
                 continue;
             }
             return {}; 
         }
 
-        DNSMensagem resposta_msg;
-        resposta_msg.parseResposta(resposta_bytes); 
-        resposta_msg.imprimirResposta(); 
+        DNSMensagem msgResposta;
+        msgResposta.parseResposta(bytesResp); 
+        msgResposta.imprimirResposta(); 
 
-        if (resposta_msg.cabecalho.ancount > 0) //Se contiver a resposta
+        if (msgResposta.cabecalho.ancount > 0) //Se contiver a resposta
         {
-            for (const auto& rr : resposta_msg.respostas) 
+            for (const auto& rr : msgResposta.respostas) 
             {
                 if (rr.tipo == qtype) 
                 { 
                     cout << "Resposta final encontrada." << endl;
-                    return resposta_bytes; 
+                    return bytesResp; 
                 }
                 if (rr.tipo == 5) 
                 {
-                    nome_a_resolver = rr.resposta_parser; 
-                    cout << "Redirecionando CNAME para: " << nome_a_resolver << endl;
-                    nameservers = {"198.41.0.4"};
-                    goto proxima_iteracao; 
+                    nomeR = rr.resposta_parser; 
+                    cout << "Redirecionando CNAME para: " << nomeR << endl;
+                    nomeServ = {"198.41.0.4"};
+                    goto prox; 
                 }
             }
         }
-        if (resposta_msg.cabecalho.nscount > 0) //Se a resposta estiver na seção de autoridade
+        if (msgResposta.cabecalho.nscount > 0) //Se a resposta estiver na seção de autoridade
         {
-            vector<string> proximos_nameservers_ips;
+            vector<string> ipsProxServ;
 
-            for (const auto& rr_ns : resposta_msg.autoridades) 
+            for (const auto& rr_ns : msgResposta.autoridades) 
             {
                 if (rr_ns.tipo == 2) 
                 { 
-                    string ns_hostname = rr_ns.resposta_parser;
+                    string nHs = rr_ns.resposta_parser;
                     
-                    cout << "Delegacao para: " << ns_hostname << ". Resolvendo o IP..." << endl;
+                    cout << "Delegacao para: " << nHs << ". Resolvendo o IP..." << endl;
 
-                    DNSClient resolver_auxiliar; 
-                    vector<uint8_t> ip_ns_bytes = resolver_auxiliar.resolve(ns_hostname, 1);
+                    DNSClient aux; 
+                    vector<uint8_t> bEndNS = aux.resolve(nHs, 1);
             
-                     if (!ip_ns_bytes.empty()) 
+                     if (!bEndNS.empty()) 
                     {
-                        DNSMensagem ip_ns_msg;
+                        DNSMensagem msgIpNS;
                        
-                        ip_ns_msg.parseResposta(ip_ns_bytes);
+                        msgIpNS.parseResposta(bEndNS);
                        
-                        if (ip_ns_msg.cabecalho.ancount > 0) 
+                        if( msgIpNS.cabecalho.ancount > 0) 
                         {                
-                           proximos_nameservers_ips.push_back(ip_ns_msg.respostas[0].resposta_parser);
-                           cout << "IP de " << ns_hostname << " encontrado: " << ip_ns_msg.respostas[0].resposta_parser << endl;
+                           ipsProxServ.push_back(msgIpNS.respostas[0].resposta_parser);
+                           cout << "IP referente a: " << nHs << " encontrado:msgIpNS.respostas[0].resposta_parser" << endl;
                         }
                     }
                 }
             }       
-            if (!proximos_nameservers_ips.empty())
+            if (!ipsProxServ.empty())
             {
-                nameservers = proximos_nameservers_ips;
+                nomeServ = ipsProxServ;
                 continue; 
             }
 
         }
-        if (resposta_msg.cabecalho.ancount == 0 && (resposta_msg.cabecalho.flags & 0x000F) == 0) //Em caso de NODATA
-            if (resposta_msg.cabecalho.nscount > 0) 
-                for (const auto& rr : resposta_msg.autoridades) 
+        if (msgResposta.cabecalho.ancount == 0 && (msgResposta.cabecalho.flags & 0x000F) == 0) //Em caso de NODATA
+            if (msgResposta.cabecalho.nscount > 0) 
+                for (const auto& rr : msgResposta.autoridades) 
                     if (rr.tipo == 6) 
                     { 
                         cout << "Nao ha dados para o tipo de registro solicitado nesse dominio." << endl;
-                        return resposta_bytes; 
+                        return bytesResp; 
                     }
 
-        if ((resposta_msg.cabecalho.flags & 0x000F) == 3) // Em caso de NXDOMAIN 
+        if ((msgResposta.cabecalho.flags & 0x000F) == 3) // Em caso de NXDOMAIN 
         {
             cout << "Dominio nao encontrado." << endl;
-            return resposta_bytes; 
+            return bytesResp; 
         }
         
         cout << "Resposta nao encontrada (ou delegacao nao seguida)." << endl;
         return {};
 
-        proxima_iteracao:; 
+        prox:; 
     }
 
     cout << "O Limite de iteracoes foi atingido." << endl;
