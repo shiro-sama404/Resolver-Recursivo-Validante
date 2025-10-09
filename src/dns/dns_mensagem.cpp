@@ -58,6 +58,7 @@ void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
     while ((ponto = nome.find('.', inicio)) != string::npos) {
         uint8_t tamanho = ponto - inicio;
         pacote.push_back(tamanho);
+        
         for (size_t i = inicio; i < ponto; ++i)
             pacote.push_back(nome[i]);
         inicio = ponto + 1;
@@ -75,6 +76,9 @@ void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
 
 
 uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
+    if (pos + 2 > dados.size()) 
+        throw std::runtime_error("Erro ao ler uint16");
+
     uint16_t valor = 0;
 
     for (int i = 0; i < 2; ++i) {
@@ -90,6 +94,8 @@ uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
 // se fosse criar uma função geral, teria que ficar convertendo os dados de 16 bits toda vez que chamasse
 // afinal, 16 bits cabem em 32, mas 32 não cabem em 16
 uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
+    if (pos + 4 > dados.size()) 
+        throw std::runtime_error("Erro ao ler uint32");
     uint32_t valor = 0;
 
     for (int i = 0; i < 4; ++i) {
