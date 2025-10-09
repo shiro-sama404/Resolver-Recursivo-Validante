@@ -155,6 +155,15 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
             }
 
         }
+        if (resposta_msg.cabecalho.ancount == 0 && (resposta_msg.cabecalho.flags & 0x000F) == 0) //Em caso de NODATA
+            if (resposta_msg.cabecalho.nscount > 0) 
+                for (const auto& rr : resposta_msg.autoridades) 
+                    if (rr.tipo == 6) 
+                    { 
+                        cout << "Não há dados para o tipo de registro solicitado nesse domínio." << endl;
+                        return resposta_bytes; 
+                    }
+
         if ((resposta_msg.cabecalho.flags & 0x000F) == 3) // Em caso de NXDOMAIN 
         {
             cout << "Domínio não encontrado." << endl;
