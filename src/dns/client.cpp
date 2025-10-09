@@ -103,7 +103,7 @@ std::vector<uint8_t> DNSClient::resolve(const std::string& name, uint16_t qtype)
         }
 
         DNSMensagem resposta_msg;
-        resposta_msg.parseResposta(resposta_bytes); /
+        resposta_msg.parseResposta(resposta_bytes); 
         resposta_msg.imprimirResposta(); 
 
         if (resposta_msg.cabecalho.ancount > 0) //Se contiver a resposta
