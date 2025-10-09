@@ -115,11 +115,25 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
 
                 recv(descritorTCP, buffer_tamanho.data(), 2, 0);
 
+                if (recv(descritorTCP, buffer_tamanho.data(), 2, MSG_WAITALL) != 2) {
+                    close(descritorTCP);
+                    throw runtime_error("Erro ao receber tamanho da resposta TCP.");
+                }
+
                 uint16_t tamRsp = buffer_tamanho[0] * 256 + buffer_tamanho[1];
                 
                 bytesResp.resize(tamRsp); 
 
-                recv(descritorTCP, bytesResp.data(), tamRsp, 0);
+                ssize_t totalRecebido = 0;
+                
+                while (totalRecebido < tamRsp) 
+                {
+                    ssize_t recebidoAgora = recv(descritorTCP, bytesResp.data() + totalRecebido, tamRsp - totalRecebido, 0);
+                    if (recebidoAgora <= 0) 
+                        break;
+                    
+                    totalRecebido += recebidoAgora;
+                }
 
                 close(descritorTCP);
             }
