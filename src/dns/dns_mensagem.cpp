@@ -305,6 +305,19 @@ void DNSMensagem::decodeMX(ResourceRecords& rr) {
 }
 
 
+void DNSMensagem::decodeTXT(ResourceRecords& rr) {
+    std::string txt;
+    size_t pos_local = 0;
+    while (pos_local < rr.rdata.size()) {
+        uint8_t len = rr.rdata[pos_local++];
+        if (pos_local + len > rr.rdata.size()) break;
+        if (!txt.empty()) txt += " ";
+        txt += std::string(rr.rdata.begin() + pos_local, rr.rdata.begin() + pos_local + len);
+        pos_local += len;
+    }
+    rr.resposta_parser = txt;
+}
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
 
     for (int i = 0; i < count; ++i) {
