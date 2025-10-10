@@ -2,8 +2,11 @@
 #include "cli/arguments.h"
 #include "dns/dns_mensagem.h" 
 #include "dns/client.h"     
+#include "dns/dot_cliente.h"
 #include <iostream>
 #include <unordered_map>     
+
+
 
 using namespace std;
 
@@ -63,29 +66,49 @@ int main(int argc, char* argv[])
 
                 args.print_summary();
                 
+                uint16_t qtype = qtype_to_uint16(args.get_qtype());
+                DNSMensagem resposta_final;
+
+                bool dot_sucesso = false;
+                
                 try {
-                    DNSClient client;
-                    uint16_t qtype = qtype_to_uint16(args.get_qtype());
+                   
+                    DOTCliente dotClient(args.get_ns(), 853);
+                    if (dotClient.conectar()) {
+                        resposta_final.configurarConsulta(args.get_name(), qtype);
+                       
+                        if (dotClient.enviarQuery(resposta_final) && dotClient.receberResposta(resposta_final)) {
+                            dot_sucesso = true;
+                        }
+                    }
+                } 
+                
+                
+                catch (const exception& e_dot) {
+                    cerr << "DoT falhou, fallback para DNSClient: " << e_dot.what() << endl;
+                }
+                
+                
+                if (!dot_sucesso) {
                     
+                    DNSClient client;         
                     vector<uint8_t> resultado_bytes = client.resolvedor(args.get_name(), qtype);
-                    
+
                     if (!resultado_bytes.empty()) 
                     {
+                        resposta_final.parseResposta(resultado_bytes);
+                    }
+                }
+                if (!resposta_final.respostas.empty() || !resposta_final.autoridades.empty() || !resposta_final.adicionais.empty()) 
+                {
                         cout << "\n\n    RESPOSTA FINAL DO RESOLVEDOR" << endl;
                         cout << "-----------------------------------\n" << endl;
-                        
-                        DNSMensagem msg_final;
-                        msg_final.parseResposta(resultado_bytes);
-                        msg_final.imprimirResposta(); 
+                        resposta_final.imprimirResposta();
 
-                    } else 
+                    } else {
                         cout << "\n\nNao encontrou resposta para " << args.get_name() << endl;
             
-                    } catch (const exception& e) 
-                    {
-                        cerr << "\nErro durante a resolucao: " << e.what() << endl;
-                        return 1;
-                    }
+                    } 
             
                return 0;
         }    
