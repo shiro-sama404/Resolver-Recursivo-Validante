@@ -112,5 +112,21 @@ bool DOTCliente::conectar() {
 }
 
 
+bool DOTCliente::enviarQuery(DNSMensagem& msg) {
+
+    vector<uint8_t> pacote = msg.montarQuery();
+    uint16_t tamanho_pct = pacote.size();
+    vector<uint8_t> buffer_tls;
+
+    
+    buffer_tls.push_back(tamanho_pct >> 8);
+    buffer_tls.push_back(tamanho_pct & 0xFF);
+    buffer_tls.insert(buffer_tls.end(), pacote.begin(), pacote.end());
+
+    int bytes_enviados = mbedtls_ssl_write(&tls_session, buffer_tls.data(), buffer_tls.size());
+    return (bytes_enviados > 0);
+}
+
+
 
 

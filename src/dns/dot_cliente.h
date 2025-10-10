@@ -19,7 +19,9 @@ public:
     ~DOTCliente();
 
     bool conectar();     
-
+    bool enviarQuery(DNSMensagem& msg);
+    
+    
 private:
     std::string servidor;
     uint16_t porta;
