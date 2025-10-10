@@ -315,8 +315,7 @@ void DNSMensagem::decodeOPT(ResourceRecords& rr) {
     rr.resposta_parser = "OPT RR (EDNS), UDP size=" + std::to_string(edns_udp_size) +
                          ", version=" + std::to_string(edns_version);
 
-    uint8_t ext_rcode = (rr.rdata[0] & 0xF0) >> 4; // exemplo de extração
-    if (ext_rcode != 0) {
+     if (ext_rcode != 0) {
         cout << "Erro EDNS: " << (int)ext_rcode << endl;
     }
 
