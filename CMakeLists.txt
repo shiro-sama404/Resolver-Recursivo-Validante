@@ -35,6 +35,7 @@ target_include_directories(resolver PRIVATE
     ${CMAKE_SOURCE_DIR}/src/server
     ${CMAKE_SOURCE_DIR}/src/dns
     ${CMAKE_SOURCE_DIR}/src/utils
+    /usr/include              # Diretório geral para mbedTLS
 )
 
 # -------------------------------------------------------------------
@@ -45,17 +46,19 @@ target_include_directories(resolver PRIVATE
 find_package(Threads REQUIRED)
 target_link_libraries(resolver PRIVATE Threads::Threads)
 
-# OpenSSL (para DNSSEC e TLS)
-find_package(OpenSSL REQUIRED)
-if(OpenSSL_FOUND)
-    target_include_directories(resolver PRIVATE ${OPENSSL_INCLUDE_DIR})
-    target_link_libraries(resolver PRIVATE OpenSSL::SSL OpenSSL::Crypto)
-endif()
+# mbedTLS
+find_library(MBEDTLS_LIB mbedtls)
+find_library(MBEDX509_LIB mbedx509)
+find_library(MBEDCRYPTO_LIB mbedcrypto)
 
+if(MBEDTLS_LIB AND MBEDX509_LIB AND MBEDCRYPTO_LIB)
+    target_link_libraries(resolver PRIVATE ${MBEDTLS_LIB} ${MBEDX509_LIB} ${MBEDCRYPTO_LIB})
+    message(STATUS "Linking with mbedTLS")
+else()
+    message(FATAL_ERROR "mbedTLS not found. Por favor instale-o.")
+endif()
 # -------------------------------------------------------------------
 # MENSAGENS DE CONFIGURAÇÃO
 # -------------------------------------------------------------------
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
-message(STATUS "OpenSSL libraries: ${OPENSSL_LIBRARIES}")
