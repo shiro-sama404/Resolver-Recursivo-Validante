@@ -1,3 +1,4 @@
+/* Còdigo Fernanda*/
 #ifndef DNSMENSAGEM_H
 #define DNSMENSAGEM_H
 
@@ -21,7 +22,7 @@ struct PerguntaDNS {
     uint16_t qclass;   
 };
 
-// ResourceRecords
+// ResourceRecurses
 struct ResourceRecords {
     std::string nome;
     uint16_t tipo;
@@ -38,7 +39,6 @@ struct EDNSOption {
 };
 
 class DNSMensagem {
-
 public:
     CabecalhoDNS cabecalho;
     PerguntaDNS pergunta;      
@@ -52,6 +52,7 @@ public:
     std::vector<ResourceRecords> respostas;
     std::vector<ResourceRecords> autoridades;
     std::vector<ResourceRecords> adicionais;
+
 
     std::vector<EDNSOption> edns_options; // opções extras
 
@@ -83,7 +84,6 @@ private:
     uint16_t edns_udp_size = 512; // tamanho negociado
     uint8_t  edns_version = 0; // versão
     uint16_t edns_z = 0; // campos reservados
-
 };
 
 #endif
