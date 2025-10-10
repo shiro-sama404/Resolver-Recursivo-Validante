@@ -18,6 +18,8 @@ public:
     DOTCliente(const std::string& servidor, uint16_t porta = 853);
     ~DOTCliente();
 
+    bool conectar();     
+
 private:
     std::string servidor;
     uint16_t porta;
@@ -30,6 +32,7 @@ private:
     mbedtls_x509_crt trusted_cert;
 
     void fecharConexao();
+    bool handshakeTLS();
 
 };
 
