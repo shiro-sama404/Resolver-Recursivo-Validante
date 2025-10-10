@@ -17,63 +17,6 @@ DOTCliente::DOTCliente(const string& servidor, uint16_t porta) : servidor(servid
 
 bool DOTCliente::handshakeTLS() {
 
-    /*bool DOTCliente::handshakeTLS() {
-    int ret;
-
-    // Inicializa contexto SSL
-    mbedtls_ssl_init(&ssl_context);
-    mbedtls_ssl_config_init(&ssl_config);
-
-    // Configura SSL padrão para cliente
-    ret = mbedtls_ssl_config_defaults(
-        &ssl_config,
-        MBEDTLS_SSL_IS_CLIENT,
-        MBEDTLS_SSL_TRANSPORT_STREAM,
-        MBEDTLS_SSL_PRESET_DEFAULT
-    );
-    if (ret != 0) {
-        cerr << "Erro ao configurar SSL: " << ret << endl;
-        return false;
-    }
-
-    // Usa o RNG inicializado
-    mbedtls_ssl_conf_rng(&ssl_config, mbedtls_ctr_drbg_random, &random_generator);
-
-    // Configura os certificados confiáveis
-    mbedtls_ssl_conf_authmode(&ssl_config, MBEDTLS_SSL_VERIFY_REQUIRED); // obriga verificação
-    mbedtls_ssl_conf_ca_chain(&ssl_config, &trusted_cert, nullptr);
-
-    // Associa configuração ao contexto
-    ret = mbedtls_ssl_setup(&ssl_context, &ssl_config);
-    if (ret != 0) {
-        cerr << "Erro ao associar configuração SSL: " << ret << endl;
-        return false;
-    }
-
-    // Associa socket TCP ao contexto SSL
-    mbedtls_ssl_set_bio(&ssl_context, &network_socket, mbedtls_net_send, mbedtls_net_recv, nullptr);
-
-    // Realiza handshake
-    while ((ret = mbedtls_ssl_handshake(&ssl_context)) != 0) {
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            cerr << "Handshake TLS falhou: " << ret << endl;
-            return false;
-        }
-    }
-
-    // Verifica certificado do servidor
-    uint32_t flags = mbedtls_ssl_get_verify_result(&ssl_context);
-    if (flags != 0) {
-        char vrfy_buf[512];
-        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "", flags);
-        cerr << "Erro de verificação do certificado: " << vrfy_buf << endl;
-        return false;
-    }
-
-    return true;
-}
-*/
-
     // inicia a conexão com tls lado cliente
     if (mbedtls_ssl_config_defaults(&tls_config, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0) {
         throw runtime_error("Erro ao configurar SSL");
@@ -140,51 +83,6 @@ bool DOTCliente::handshakeTLS() {
 
 
 bool DOTCliente::conectar() {
-
-    mbedtls_x509_crt cacert;
-    mbedtls_x509_crt_init(&cacert);
-
-    // carregar os certificados do arquivo local
-    int ret = mbedtls_x509_crt_parse_file(&cacert, "cacert.pem");
-    if (ret != 0) {
-        cerr << "Erro ao carregar certificados CA: " << ret << endl;
-        return false;
-    }
-
-    /*bool DOTCliente::conectar() {
-    // Inicializa CA root
-    mbedtls_x509_crt_init(&trusted_cert);
-    int ret = mbedtls_x509_crt_parse_file(&trusted_cert, "cacert.pem"); // usa arquivo do mesmo diretório
-    if (ret != 0) {
-        cerr << "Erro ao carregar certificados CA: " << ret << endl;
-        return false;
-    }
-
-    const char* personalization = "dot_client";
-
-    // Inicializa RNG
-    ret = mbedtls_ctr_drbg_seed(&random_generator, mbedtls_entropy_func, &entropy_source,
-                                reinterpret_cast<const unsigned char*>(personalization),
-                                strlen(personalization));
-    if (ret != 0) {
-        throw runtime_error("Erro ao inicializar RNG");
-    }
-
-    // Conecta TCP ao servidor DoT
-    ret = mbedtls_net_connect(&network_socket, servidor.c_str(), to_string(porta).c_str(), MBEDTLS_NET_PROTO_TCP);
-    if (ret != 0) {
-        throw runtime_error("Erro ao conectar ao servidor " + servidor);
-    }
-
-    // Realiza handshake TLS
-    if (!handshakeTLS()) {
-        fecharConexao();
-        throw runtime_error("Falha no handshake TLS com " + servidor);
-    }
-
-    return true;
-}
-*/
 
     const char* personalisar = "dot_client";
 
