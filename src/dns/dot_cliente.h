@@ -20,7 +20,7 @@ public:
 
     bool conectar();     
     bool enviarQuery(DNSMensagem& msg);
-    
+    bool receberResposta(DNSMensagem& msg);
     
 private:
     std::string servidor;

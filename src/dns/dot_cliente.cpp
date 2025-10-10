@@ -5,61 +5,55 @@
 using namespace std;
 
 DOTCliente::DOTCliente(const string& servidor, uint16_t porta) : servidor(servidor), porta(porta) {
+
     mbedtls_net_init(&network_socket);
     mbedtls_ssl_init(&tls_session);
     mbedtls_ssl_config_init(&tls_config);
     mbedtls_entropy_init(&entropy_source);
     mbedtls_ctr_drbg_init(&random_generator);
     mbedtls_x509_crt_init(&trusted_cert);
-}
 
-void DOTCliente::fecharConexao() {
-    mbedtls_ssl_close_notify(&tls_session);  
-    mbedtls_net_free(&network_socket);      
-}
-
-DOTCliente::~DOTCliente() {
-    fecharConexao();
-    mbedtls_x509_crt_free(&trusted_cert);
-    mbedtls_ssl_free(&tls_session);
-    mbedtls_ssl_config_free(&tls_config);
-    mbedtls_ctr_drbg_free(&random_generator);
-    mbedtls_entropy_free(&entropy_source);
-    mbedtls_net_free(&network_socket);
 }
 
 bool DOTCliente::handshakeTLS() {
 
     // inicia a conexão com tls lado cliente
-    if (mbedtls_ssl_config_defaults(&tls_config,
-            MBEDTLS_SSL_IS_CLIENT,
-            MBEDTLS_SSL_TRANSPORT_STREAM,
-            MBEDTLS_SSL_PRESET_DEFAULT) != 0)
-    {
+    if (mbedtls_ssl_config_defaults(&tls_config, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0) {
         throw runtime_error("Erro ao configurar SSL");
     }
+
+
 
     // manda fazer verificações de segurança
     mbedtls_ssl_conf_authmode(&tls_config, MBEDTLS_SSL_VERIFY_REQUIRED);
     mbedtls_ssl_conf_ca_chain(&tls_config, &trusted_cert, nullptr);
     mbedtls_ssl_conf_rng(&tls_config, mbedtls_ctr_drbg_random, &random_generator);
 
+
+
     // estabelece conexão segura
     if (mbedtls_ssl_setup(&tls_session, &tls_config) != 0) {
         throw runtime_error("Erro ao inicializar contexto SSL");
     }
+
+
+
 
     // define sni - qual servidor quero acessar
     if (mbedtls_ssl_set_hostname(&tls_session, servidor.c_str()) != 0) {
         throw runtime_error("Erro ao configurar SNI");
     }
 
-    mbedtls_ssl_set_bio(&tls_session, &network_socket, mbedtls_net_send, mbedtls_net_recv, nullptr);
 
+
+    mbedtls_ssl_set_bio(&tls_session, &network_socket, mbedtls_net_send, mbedtls_net_recv, nullptr);
     int status;
+
+
 
     // handshake
     while ((status = mbedtls_ssl_handshake(&tls_session)) != 0) {
+
         if (status != MBEDTLS_ERR_SSL_WANT_READ && status != MBEDTLS_ERR_SSL_WANT_WRITE) {
             char buf[100];
             mbedtls_strerror(status, buf, sizeof(buf));
@@ -68,40 +62,52 @@ bool DOTCliente::handshakeTLS() {
     }
 
 
+
     // valida certificado
     uint32_t flags = mbedtls_ssl_get_verify_result(&tls_session);
+
+
+
     if (flags != 0) {
+
         char msg_erro[512];
         mbedtls_x509_crt_verify_info(msg_erro, sizeof(msg_erro), "", flags);
         throw runtime_error(string("Falha na validação do certificado: ") + msg_erro);
+
     }
-
-
     return true;
 }
 
 
 
+
+
 bool DOTCliente::conectar() {
+
     const char* personalisar = "dot_client";
 
     // inicializa random number generator
     if (mbedtls_ctr_drbg_seed(&random_generator, mbedtls_entropy_func, &entropy_source, reinterpret_cast<const unsigned char*>(personalisar),
-                              strlen(personalisar)) != 0)
-    {
+                              strlen(personalisar)) != 0) {
+
         throw runtime_error("Erro ao inicializar RNG"); // random number generator
     }
+
+
 
     // carrega certificados confiáveis
     if (mbedtls_x509_crt_parse_path(&trusted_cert, "/etc/ssl/certs") != 0) {
         throw runtime_error("Erro ao carregar certificados CA");
     }
 
+
+
     // conecta tcp ao dot
-    if (mbedtls_net_connect(&network_socket, servidor.c_str(), to_string(porta).c_str(), MBEDTLS_NET_PROTO_TCP) != 0)
-    {
+    if (mbedtls_net_connect(&network_socket, servidor.c_str(), to_string(porta).c_str(), MBEDTLS_NET_PROTO_TCP) != 0) {
         throw runtime_error("Erro ao conectar ao servidor " + servidor);
     }
+
+
 
     if (!handshakeTLS()) { 
         fecharConexao();
@@ -118,15 +124,107 @@ bool DOTCliente::enviarQuery(DNSMensagem& msg) {
     uint16_t tamanho_pct = pacote.size();
     vector<uint8_t> buffer_tls;
 
-    
     buffer_tls.push_back(tamanho_pct >> 8);
     buffer_tls.push_back(tamanho_pct & 0xFF);
     buffer_tls.insert(buffer_tls.end(), pacote.begin(), pacote.end());
 
     int bytes_enviados = mbedtls_ssl_write(&tls_session, buffer_tls.data(), buffer_tls.size());
-    return (bytes_enviados > 0);
+    bool result = (bytes_enviados > 0);
+    
+    return result;
+
 }
 
 
 
+bool DOTCliente::receberResposta(DNSMensagem& msg) {
 
+
+    uint8_t prefixo[2];      
+    int prefixo_lido = 0;
+
+
+    // lê o tamanho da msg
+    while (prefixo_lido < 2) {
+        int status = mbedtls_ssl_read(&tls_session, prefixo + prefixo_lido, 2 - prefixo_lido);
+
+        if (status > 0) {  
+            prefixo_lido += status;
+            continue;
+        }
+
+
+        if (status == 0)
+            throw runtime_error("Conexao TLS fechada pelo servidor ao ler tamanho");
+
+
+        // não foi possivel completar sua chamada, tente novamente
+        if (status == MBEDTLS_ERR_SSL_WANT_READ || status == MBEDTLS_ERR_SSL_WANT_WRITE)
+            continue; 
+
+
+        char msg_erro[100];
+        mbedtls_strerror(status, msg_erro, sizeof(msg_erro));
+        throw runtime_error(string("Erro ao ler tamanho da resposta TLS: ") + msg_erro);
+    }
+
+
+    uint16_t tam_resposta = (static_cast<uint16_t>(prefixo[0]) << 8) | prefixo[1];
+    const uint16_t MAX_DNS_PACKET = 4096;
+    
+    
+    if (tam_resposta < 12 || tam_resposta > MAX_DNS_PACKET)
+        throw runtime_error("Tamanho da resposta DNS invalido: " + to_string(tam_resposta));
+
+
+    vector<uint8_t> buffer_resposta(tam_resposta);
+    size_t total_lido = 0;
+
+
+    // lê a msg
+    while (total_lido < tam_resposta) {
+
+        int status = mbedtls_ssl_read(&tls_session, buffer_resposta.data() + total_lido, tam_resposta - total_lido);
+
+
+        if (status > 0) {
+            total_lido += status;
+            continue;
+        }
+
+
+        if (status == 0)
+            throw runtime_error("Conexao TLS fechada durante leitura do payload");
+
+
+        if (status == MBEDTLS_ERR_SSL_WANT_READ || status == MBEDTLS_ERR_SSL_WANT_WRITE)
+            continue;
+
+
+        char msg_erro[100];
+        mbedtls_strerror(status, msg_erro, sizeof(msg_erro));
+        throw runtime_error(string("Erro ao ler resposta TLS: ") + msg_erro);
+    }
+
+
+    msg.parseResposta(buffer_resposta);
+    return true;
+}
+
+
+void DOTCliente::fecharConexao() {
+    mbedtls_ssl_close_notify(&tls_session);  
+    mbedtls_net_free(&network_socket);      
+}
+
+DOTCliente::~DOTCliente() {
+
+    fecharConexao();
+    mbedtls_x509_crt_free(&trusted_cert);
+    mbedtls_ssl_free(&tls_session);
+    mbedtls_ssl_config_free(&tls_config);
+    mbedtls_ctr_drbg_free(&random_generator);
+    mbedtls_entropy_free(&entropy_source);
+    mbedtls_net_free(&network_socket);
+
+}
