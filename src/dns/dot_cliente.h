@@ -22,6 +22,15 @@ private:
     std::string servidor;
     uint16_t porta;
 
+    mbedtls_net_context network_socket;
+    mbedtls_ssl_context tls_session;
+    mbedtls_ssl_config tls_config;
+    mbedtls_entropy_context entropy_source;
+    mbedtls_ctr_drbg_context random_generator;
+    mbedtls_x509_crt trusted_cert;
+
+    void fecharConexao();
+
 };
 
 #endif 
