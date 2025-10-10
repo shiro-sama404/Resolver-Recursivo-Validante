@@ -1,4 +1,3 @@
-/* Còdigo Fernanda*/
 #include "dns_mensagem.h"
 #include <iostream>
 #include <vector>
@@ -38,13 +37,13 @@ void DNSMensagem::addUint16(vector<uint8_t>& pacote, uint16_t valor) {
 
 }
 
+
 void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
     size_t inicio = 0;
     size_t ponto = 0;
     string nome = pergunta.qname;
 
     while ((ponto = nome.find('.', inicio)) != string::npos) {
-
         uint8_t tamanho = ponto - inicio;
         pacote.push_back(tamanho);
         
@@ -61,7 +60,7 @@ void DNSMensagem::addPergunta(vector<uint8_t>& pacote) {
         pacote.push_back(nome[i]);
 
     pacote.push_back(0);
-    
+
     addUint16(pacote, pergunta.qtype);
     addUint16(pacote, pergunta.qclass);
 
@@ -83,8 +82,8 @@ vector<uint8_t> DNSMensagem::montarQuery() {
 }
 
 
-uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
-    
+uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {    
+   
     if (pos + 2 > dados.size()) 
         throw std::runtime_error("Erro ao ler uint16");
 
@@ -102,8 +101,9 @@ uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
 // criei uma função diferente para ler dados de 32 bits porque ele só é lido uma vez
 // se fosse criar uma função geral, teria que ficar convertendo os dados de 16 bits toda vez que chamasse
 // afinal, 16 bits cabem em 32, mas 32 não cabem em 16
-uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
 
+uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
+    
     if (pos + 4 > dados.size()) 
         throw std::runtime_error("Erro ao ler uint32");
     
@@ -126,7 +126,6 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     while (pos < dados.size()) {
         uint8_t len = dados[pos];
 
-
         if ((len & 0xC0) == 0xC0) {
             if (pos + 1 >= dados.size())
                 throw std::runtime_error("Erro ao ler ponteiro de nome DNS");
@@ -144,6 +143,7 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
         }
 
         pos++; 
+    
         if (len == 0)
             break; 
 
@@ -156,15 +156,17 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
         for (int i = 0; i < len; ++i) {
             nome += static_cast<char>(dados[pos++]);
         }
+    
     }
 
     if (pular_pos) 
         pos = pos_original;  
 
     return nome;
-}
 
+}
       
+
 
 void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
     cabecalho.id      = lerUint16(dados, pos);
@@ -175,14 +177,15 @@ void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
     cabecalho.arcount = lerUint16(dados, pos);
 }
 
+
 void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
     pergunta.qname  = lerNome(dados, pos);
     pergunta.qtype  = lerUint16(dados, pos);
     pergunta.qclass = lerUint16(dados, pos);
 }
 
-// funçoes de decodificaçao
 
+// funçoes de decodificaçao
 void DNSMensagem::decodeA(ResourceRecords& rr) {
 
     if (rr.rdlen == 4) {
@@ -196,6 +199,8 @@ void DNSMensagem::decodeA(ResourceRecords& rr) {
     }
 
 }
+
+
 
 void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
 
@@ -218,18 +223,24 @@ void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
 
 }
 
+
+
 void DNSMensagem::decodeCNAME(ResourceRecords& rr) {
     size_t pos_local = 0;
     rr.resposta_parser = lerNome(rr.rdata, pos_local);
 }
 
+
+
 // descobre quem é o servidor autoritativo do dominio
-// ou seja, dada uma URL
-// ele descobre pra quem tem que perguntar para descobrir o IP
+// ou seja, dada uma URL ele descobre pra quem tem que perguntar para descobrir o IP
+
 void DNSMensagem::decodeNS(ResourceRecords& rr) {
     size_t pos_local = 0;
     rr.resposta_parser = lerNome(rr.rdata, pos_local);
 }
+
+
 
 void DNSMensagem::decodeSOA(ResourceRecords& rr) {
     size_t pos_local = 0;
@@ -262,6 +273,8 @@ void DNSMensagem::decodeSOA(ResourceRecords& rr) {
 
 }
 
+
+
 void DNSMensagem::decodeMX(ResourceRecords& rr) {
 
     if (rr.rdlen < 3) {
@@ -275,6 +288,8 @@ void DNSMensagem::decodeMX(ResourceRecords& rr) {
 
     rr.resposta_parser = "Preference: " + std::to_string(preferencia) + ", Exchange: " + destino;
 }
+
+
 
 void DNSMensagem::decodeTXT(ResourceRecords& rr) {
     std::string txt;
@@ -296,6 +311,9 @@ void DNSMensagem::decodeTXT(ResourceRecords& rr) {
     rr.resposta_parser = txt;
 }
 
+
+
+
 void DNSMensagem::decodeOPT(ResourceRecords& rr) {
 
     if (rr.rdata.size() < 3) {
@@ -315,12 +333,9 @@ void DNSMensagem::decodeOPT(ResourceRecords& rr) {
     rr.resposta_parser = "OPT RR (EDNS), UDP size=" + std::to_string(edns_udp_size) +
                          ", version=" + std::to_string(edns_version);
 
-    uint8_t ext_rcode = (rr.rdata[0] & 0xF0) >> 4; // exemplo de extração
     if (ext_rcode != 0) {
         cout << "Erro EDNS: " << (int)ext_rcode << endl;
     }
-
-
 
     size_t pos = 0;
     
@@ -339,17 +354,25 @@ void DNSMensagem::decodeOPT(ResourceRecords& rr) {
     }
 }
 
+
+
 void DNSMensagem::decodeDS(ResourceRecords& rr) {
     rr.resposta_parser = "Registro DS (Delegation Signer), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
 }
+
+
 
 void DNSMensagem::decodeRRSIG(ResourceRecords& rr) {
     rr.resposta_parser = "RRSIG RR (assinatura DNSSEC), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
 }
 
+
+
 void DNSMensagem::decodeDNSKEY(ResourceRecords& rr) {
     rr.resposta_parser = "DNSKEY RR (chave pública), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
 }
+
+
 
 
 ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size_t& pos) {
@@ -362,12 +385,12 @@ ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size
     rr.rdlen  = lerUint16(dados, pos);
 
     if (pos + rr.rdlen > dados.size())
-    throw std::runtime_error("Erro: RDLength ultrapassa tamanho do pacote DNS");
+        throw std::runtime_error("Erro: RDLength ultrapassa tamanho do pacote DNS");
 
     rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
     pos += rr.rdlen;
 
-    // Decodifica conforme o tipo do RR
+
     switch (rr.tipo) {
         case 1:  
             decodeA(rr);
@@ -422,22 +445,38 @@ ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size
     return rr;
 }
 
+
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+
     for (int i = 0; i < count; ++i)
         respostas.push_back(lerRegistro(dados, pos));
 }
 
+
+
 void DNSMensagem::lerAutoridade(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+
     for (int i = 0; i < count; ++i)
         autoridades.push_back(lerRegistro(dados, pos));
 }
 
+
+
 void DNSMensagem::lerAdicional(const std::vector<uint8_t>& dados, size_t& pos, int count) {
+
     for (int i = 0; i < count; ++i)
         adicionais.push_back(lerRegistro(dados, pos));
 }
 
+
+
 void DNSMensagem::parseResposta(const std::vector<uint8_t>& dados) {
+
+    respostas.clear();
+    autoridades.clear();
+    adicionais.clear();
+
     if (dados.size() < 12)
         throw std::runtime_error("Pacote DNS inválido (muito pequeno)");
 
@@ -451,9 +490,11 @@ void DNSMensagem::parseResposta(const std::vector<uint8_t>& dados) {
     lerAdicional(dados, pos, cabecalho.arcount);
 }
 
+
+
 void DNSMensagem::imprimirResposta() {
 
-    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "\n============== CABEÇALHO DNS ==============\n";
     cout << "ID:        " << cabecalho.id << endl;
     cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
     cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
@@ -461,9 +502,36 @@ void DNSMensagem::imprimirResposta() {
     cout << "NSCOUNT:   " << cabecalho.nscount << endl;
     cout << "ARCOUNT:   " << cabecalho.arcount << endl;
 
-    cout << "\n========= PERGUNTA =========\n";
+    cout << "\n============= PERGUNTA =============\n";
     cout << "Domínio:   " << pergunta.qname << endl;
     cout << "Tipo:      " << pergunta.qtype << endl;
     cout << "Classe:    " << pergunta.qclass << endl;
 
+    if (!respostas.empty()) {
+        cout << "\n============ RESPOSTAS ============\n";
+        for (const auto& rr : respostas) {
+            cout << rr.nome << " | Tipo: " << rr.tipo 
+                 << " | TTL: " << rr.ttl
+                 << " | Valor: " << rr.resposta_parser << endl;
+        }
+    }
+
+    if (!autoridades.empty()) {
+        cout << "\n============ AUTORIDADE ============\n";
+        for (const auto& rr : autoridades) {
+            cout << rr.nome << " | Tipo: " << rr.tipo 
+                 << " | TTL: " << rr.ttl
+                 << " | Valor: " << rr.resposta_parser << endl;
+        }
+    }
+
+    if (!adicionais.empty()) {
+        cout << "\n============ ADICIONAL ============\n";
+        for (const auto& rr : adicionais) {
+            cout << rr.nome << " | Tipo: " << rr.tipo 
+                 << " | TTL: " << rr.ttl
+                 << " | Valor: " << rr.resposta_parser << endl;
+        }
+    }
 }
+
