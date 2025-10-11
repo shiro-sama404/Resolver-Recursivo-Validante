@@ -1,4 +1,3 @@
-/* Còdigo Fernanda*/
 #include "dns_mensagem.hpp"
 
 
