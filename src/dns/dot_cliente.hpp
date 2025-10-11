@@ -1,9 +1,10 @@
-#ifndef DOT_CLIENTE_H
-#define DOT_CLIENTE_H
+#pragma once
 
-#include "dns_mensagem.h"
+#include <iostream>
+#include <cstring>
 #include <string>
 #include <vector>
+
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/entropy.h>
@@ -11,16 +12,17 @@
 #include <mbedtls/error.h>
 #include <mbedtls/x509_crt.h>
 
+#include "dns_mensagem.hpp"
 
-class DOTCliente {
+class DOTCliente
+{
 public:
-
-    DOTCliente(const std::string& servidor, uint16_t porta = 853);
-    ~DOTCliente();
-
     bool conectar();     
     bool enviarQuery(DNSMensagem& msg);
     bool receberResposta(DNSMensagem& msg);
+
+    DOTCliente(const std::string& servidor, uint16_t porta = 853);
+    ~DOTCliente();
     
 private:
     std::string servidor;
@@ -35,7 +37,4 @@ private:
 
     void fecharConexao();
     bool handshakeTLS();
-
 };
-
-#endif 

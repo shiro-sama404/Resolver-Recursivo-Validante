@@ -1,14 +1,18 @@
-#ifndef ARGUMENTS_H
-#define ARGUMENTS_H
+#pragma once
 
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
 #include <string>
-#include <optional>
 #include <vector>
 #include <unordered_map>
+#include <optional>
+#include <getopt.h>
 
 using namespace std;
 
-enum class Mode {
+enum class Mode
+{
     Recursive,
     Forwarder,
     Iterative,
@@ -19,7 +23,8 @@ enum class Mode {
     Unknown
 };
 
-enum class CacheCommand {
+enum class CacheCommand
+{
     None,
     Activate,
     Deactivate,
@@ -34,7 +39,8 @@ enum class CacheCommand {
     ListAll
 };
 
-class Arguments {
+class Arguments
+{
 public:
     Arguments(int argc, char* argv[]);
 
@@ -60,9 +66,6 @@ public:
     static Mode string_to_mode(const string& s);
 
 private:
-    void parse(int argc, char* argv[]);
-
-    // atributos
     string _ns;
     string _name;
     string _qtype;
@@ -74,9 +77,8 @@ private:
     int _timeout = 5;
     bool _trace = false;
 
-    // comandos de cache
     CacheCommand cacheCommand_ = CacheCommand::None;
     int cacheValue_ = 0; // set positive/negative
-};
 
-#endif
+    void parse(int argc, char* argv[]);
+};

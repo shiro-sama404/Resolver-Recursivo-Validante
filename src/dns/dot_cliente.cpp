@@ -1,6 +1,4 @@
-#include "dot_cliente.h"
-#include <iostream>
-#include <cstring>
+#include "dot_cliente.hpp"
 
 using namespace std;
 
