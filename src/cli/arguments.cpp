@@ -1,10 +1,4 @@
-#include "arguments.h"
-#include <getopt.h>
-#include <iostream>
-#include <stdexcept>
-#include <cstdlib>
-
-//using namespace Arguments;
+#include "arguments.hpp"
 
 // Mapeamento
 static const unordered_map<string, Mode> mode_map = {
@@ -17,30 +11,32 @@ static const unordered_map<string, Mode> mode_map = {
     {"dot", Mode::Dot}
 };
 
-string Arguments::mode_to_string(Mode m) {
+string Arguments::mode_to_string(Mode m)
+{
     for (const auto& [key, val] : mode_map) 
         if (val == m) return key;
 
     return "unknown";
 }
 
-Mode Arguments::string_to_mode(const string& s) {
+Mode Arguments::string_to_mode(const string& s)
+{
     auto it = mode_map.find(s);
     if (it != mode_map.end()) return it->second;
     return Mode::Unknown;
 }
 
-void Arguments::print_usage(const char* prog) {
+void Arguments::print_usage(const char* prog)
+{
     cerr << "Uso: " << prog << " --ns <server> --name <domain> --qtype <type> "
-        << "[--mode <m>] [--sni <s>] [--trust-anchor <file>] "
-        << "[--fanout <n>] [--workers <n>] [--timeout <sec>] [--trace]\n";
+    << "[--mode <m>] [--sni <s>] [--trust-anchor <file>] "
+    << "[--fanout <n>] [--workers <n>] [--timeout <sec>] [--trace]\n";
 }
 
-Arguments::Arguments(int argc, char* argv[]) {
-    parse(argc, argv);
-}
+Arguments::Arguments(int argc, char* argv[]) {parse(argc, argv);}
 
-void Arguments::parse(int argc, char* argv[]) {
+void Arguments::parse(int argc, char* argv[])
+{
     constexpr option long_options[] = {
         {"ns", required_argument, nullptr, 'n'},
         {"name", required_argument, nullptr, 'd'},
@@ -70,8 +66,10 @@ void Arguments::parse(int argc, char* argv[]) {
     };
 
     int opt, option_index = 0;
-    while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
-        switch (opt) {
+    while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) != -1)
+    {
+        switch (opt)
+        {
             // parâmetros DNS
             case 'n': _ns = optarg; break;
             case 'd': _name = optarg; break;
@@ -103,16 +101,17 @@ void Arguments::parse(int argc, char* argv[]) {
     }
 }
 
-void Arguments::print_summary() const {
-    cout << "Configuração recebida:\n";
-    cout << "NS: " << _ns << "\n";
-    cout << "Nome: " << _name << "\n";
-    cout << "QTYPE: " << _qtype << "\n";
-    cout << "Modo: " << mode_to_string(_mode) << "\n";
-    cout << "SNI: " << (_sni ? *_sni : "N/A") << "\n";
-    cout << "Trust Anchor: " << (_trust_anchor ? *_trust_anchor : "N/A") << "\n";
-    cout << "Fanout: " << _fanout << "\n";
-    cout << "Workers: " << _workers << "\n";
-    cout << "Timeout: " << _timeout << "\n";
-    cout << "Trace: " << (_trace ? "ON" : "OFF") << "\n";
+void Arguments::print_summary() const
+{
+    cout << "Configuração recebida:" << endl;
+    cout << "NS: " << _ns << endl;
+    cout << "Nome: " << _name << endl;
+    cout << "QTYPE: " << _qtype << endl;
+    cout << "Modo: " << mode_to_string(_mode) << endl;
+    cout << "SNI: " << (_sni ? *_sni : "N/A") << endl;
+    cout << "Trust Anchor: " << (_trust_anchor ? *_trust_anchor : "N/A") << endl;
+    cout << "Fanout: " << _fanout << endl;
+    cout << "Workers: " << _workers << endl;
+    cout << "Timeout: " << _timeout << endl;
+    cout << "Trace: " << (_trace ? "ON" : "OFF") << endl;
 }

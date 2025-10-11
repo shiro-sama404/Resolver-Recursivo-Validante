@@ -1,10 +1,6 @@
 /* Còdigo Fernanda*/
-#include "dns_mensagem.h"
-#include <iostream>
-#include <vector>
-#include <string>
-#include <iomanip> 
-#include <cstdlib> 
+#include "dns_mensagem.hpp"
+
 
 using namespace std;
 

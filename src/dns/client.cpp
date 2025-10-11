@@ -1,13 +1,5 @@
-#include "client.h"
-#include "dns_mensagem.h" 
-#include <iostream>
-#include <cstring>
-#include <sys/time.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <stdexcept>
+#include "client.hpp"
+
 #define MAX_DEPTH 30
 
 using namespace std;
@@ -20,7 +12,6 @@ std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std:
     if (descritor < 0) 
         throw runtime_error("Erro em: udp()");
     
-
     struct timeval tEspera;
     tEspera.tv_sec = tempoTO;
     tEspera.tv_usec = 0;
@@ -37,7 +28,6 @@ std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std:
     if (resultPton <= 0) 
         throw invalid_argument("\nEndereço IP invalido.");
     
-
     int resultEnv = sendto(descritor, pctC.data(), pctC.size(), 0, (const struct sockaddr *)&endServ, sizeof(endServ));
 
     vector<uint8_t> bufferR(512); 
@@ -45,9 +35,7 @@ std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std:
     
     ssize_t bytesR = recvfrom(descritor, bufferR.data(), bufferR.size(), 0, (struct sockaddr *)&endServ, &tamEnd);
 
-    if ((resultOpt >= 0) && (resultEnv >= 0) && (bytesR >= 0))
-        ;
-    else
+    if (!((resultOpt >= 0) && (resultEnv >= 0) && (bytesR >= 0)))
         throw runtime_error("Erro em udp()");
 
     bufferR.resize(bytesR);
@@ -59,9 +47,7 @@ std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std:
 std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qtype) 
 {
     vector<string> nomeServ = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
-    
     string nomeR = name;
-    
     int qtd = 0;
 
     while(qtd < MAX_DEPTH)
@@ -71,7 +57,6 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
         DNSMensagem msgConsulta;
         msgConsulta.configurarConsulta(nomeR, qtype);
         vector<uint8_t> pctC = msgConsulta.montarQuery();
-
         vector<uint8_t> bytesResp;
         
         try 

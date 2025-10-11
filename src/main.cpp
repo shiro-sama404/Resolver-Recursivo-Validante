@@ -1,12 +1,8 @@
-#include "server/cache_daemon.h"
-#include "cli/arguments.h"
-#include "dns/dns_mensagem.h" 
-#include "dns/client.h"     
-#include "dns/dot_cliente.h"
-#include <iostream>
-#include <unordered_map>     
-
-
+#include "server/cache_daemon.hpp"
+#include "cli/arguments.hpp"
+#include "dns/dns_mensagem.hpp"
+#include "dns/client.hpp"
+#include "dns/dot_cliente.hpp"
 
 using namespace std;
 
@@ -23,7 +19,6 @@ uint16_t qtype_to_uint16(const string& qtype_str) //Para traduzir a string
     
     return 1;
 }
-
 
 int main(int argc, char* argv[]) 
 {
@@ -55,13 +50,11 @@ int main(int argc, char* argv[])
             default:
             
                 // Fluxo de resolução do DNS
-                
-                
                 if (args.get_name().empty() || args.get_qtype().empty()) 
-                 {
-                cerr << "Erro: '--name' e '--qtype' sao argumentos obrigatorios." << endl;
-                Arguments::print_usage(argv[0]);
-                return 1;
+                {
+                    cerr << "Erro: '--name' e '--qtype' sao argumentos obrigatorios." << endl;
+                    Arguments::print_usage(argv[0]);
+                    return 1;
                 }
 
                 args.print_summary();
@@ -71,46 +64,41 @@ int main(int argc, char* argv[])
 
                 bool dot_sucesso = false;
                 
-                try {
-                   
+                try
+                {
                     DOTCliente dotClient(args.get_ns(), 853);
-                    if (dotClient.conectar()) {
+                    if (dotClient.conectar())
+                    {
                         resposta_final.configurarConsulta(args.get_name(), qtype);
                        
-                        if (dotClient.enviarQuery(resposta_final) && dotClient.receberResposta(resposta_final)) {
+                        if (dotClient.enviarQuery(resposta_final) && dotClient.receberResposta(resposta_final))
                             dot_sucesso = true;
-                        }
                     }
-                } 
+                }
                 
-                
-                catch (const exception& e_dot) {
+                catch (const exception& e_dot)
+                {
                     cerr << "DoT falhou, fallback para DNSClient: " << e_dot.what() << endl;
                 }
                 
-                
-                if (!dot_sucesso) {
-                    
+                if (!dot_sucesso)
+                {
                     DNSClient client;         
                     vector<uint8_t> resultado_bytes = client.resolvedor(args.get_name(), qtype);
 
                     if (!resultado_bytes.empty()) 
-                    {
                         resposta_final.parseResposta(resultado_bytes);
-                    }
                 }
                 if (!resposta_final.respostas.empty() || !resposta_final.autoridades.empty() || !resposta_final.adicionais.empty()) 
                 {
-                        cout << "\n\n    RESPOSTA FINAL DO RESOLVEDOR" << endl;
-                        cout << "-----------------------------------\n" << endl;
-                        resposta_final.imprimirResposta();
+                    cout << "\n\n    RESPOSTA FINAL DO RESOLVEDOR" << endl;
+                    cout << "-----------------------------------\n" << endl;
+                    resposta_final.imprimirResposta();
 
-                    } else {
-                        cout << "\n\nNao encontrou resposta para " << args.get_name() << endl;
+                } else
+                    cout << "\n\nNao encontrou resposta para " << args.get_name() << endl;
             
-                    } 
-            
-               return 0;
+                return 0;
         }    
     }
     catch (const exception& e) {
