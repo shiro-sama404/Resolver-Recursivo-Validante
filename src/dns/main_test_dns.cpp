@@ -117,7 +117,7 @@ int main() {
    
    
    
-   
+/*   
    
 #include <iostream>
 #include <vector>
@@ -156,6 +156,49 @@ int main() {
     }
 
     cout << "\n===== TESTE DE ERROS CONCLUÍDO =====\n";
+    return 0;
+}
+*/
+
+
+#include "dot_cliente.h"
+#include "dns_mensagem.h"
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    string servidor = "1.1.1.1"; // exemplo: Cloudflare DNS over TLS
+    string nome = "www.example.com";
+    uint16_t qtype = 1; // A
+
+    try {
+        DOTCliente dotClient(servidor, 853);
+        if (!dotClient.conectar()) {
+            cerr << "Falha ao conectar via DoT" << endl;
+            return 1;
+        }
+
+        DNSMensagem consulta;
+        consulta.configurarConsulta(nome, qtype);
+
+        if (!dotClient.enviarQuery(consulta)) {
+            cerr << "Falha ao enviar query" << endl;
+            return 1;
+        }
+
+        if (!dotClient.receberResposta(consulta)) {
+            cerr << "Falha ao receber resposta" << endl;
+            return 1;
+        }
+
+        cout << "Consulta DoT realizada com sucesso!\n";
+        consulta.imprimirResposta();
+    } catch (const exception& e) {
+        cerr << "Erro: " << e.what() << endl;
+        return 1;
+    }
+
     return 0;
 }
 
