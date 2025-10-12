@@ -8,6 +8,8 @@
 #include <thread>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <netdb.h>
 #include <unistd.h>
 
@@ -20,6 +22,7 @@
 #include "dns_mensagem.hpp"
 
 class DOTCliente {
+public:
 
     DOTCliente(const std::string& servidor, int porta = 853);
     ~DOTCliente();
@@ -42,4 +45,4 @@ private:
     void fecharConexao();
     static int enviar_dados(void* ctx_socket, const unsigned char* dados_enviar, size_t tam_dados);
     static int receber_dados(void* ctx, unsigned char* buf, size_t len);
-}
+};
