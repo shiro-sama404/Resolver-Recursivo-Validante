@@ -1,8 +1,8 @@
 #pragma once
 
-#include <unistd.h>
 #include <iostream>
 #include <cstring>
+#include <unistd.h>
 #include <string>
 #include <unordered_map>
 #include <optional>
@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <chrono>
+#include <sstream>
+#include <filesystem>
 
 using namespace std;
 
@@ -23,18 +25,21 @@ struct CacheEntry
 class CacheDaemon
 {
 public:
-    CacheDaemon();
+    CacheDaemon() {};
     void run();
     static void send_command(const string& cmd);
 
 private:
-    unordered_map<string, CacheEntry> _positiveCache;
-    unordered_map<string, CacheEntry> _negativeCache;
-    mutex _mtx;
     bool _running = true;
     const string _socketPath = "/tmp/resolver.sock";
+    mutex _mtx;
+    size_t _maxPositiveSize = 50;
+    size_t _maxNegativeSize = 50;
+    unordered_map<string, CacheEntry> _positiveCache;
+    unordered_map<string, CacheEntry> _negativeCache;
 
     void handle_client(int client_fd);
     void cleanup();
+    bool is_expired(const CacheEntry& entry) const;
     string process_command(const string& cmd);
 };

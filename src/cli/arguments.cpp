@@ -11,11 +11,12 @@ static const unordered_map<string, Mode> mode_map = {
     {"dot", Mode::Dot}
 };
 
+Arguments::Arguments(int argc, char* argv[]) {parse(argc, argv);}
+
 string Arguments::mode_to_string(Mode m)
 {
     for (const auto& [key, val] : mode_map) 
         if (val == m) return key;
-
     return "unknown";
 }
 
@@ -28,12 +29,18 @@ Mode Arguments::string_to_mode(const string& s)
 
 void Arguments::print_usage(const char* prog)
 {
-    cerr << "Uso: " << prog << " --ns <server> --name <domain> --qtype <type> "
-    << "[--mode <m>] [--sni <s>] [--trust-anchor <file>] "
-    << "[--fanout <n>] [--workers <n>] [--timeout <sec>] [--trace]\n";
+    cerr << "Uso: " << prog << endl
+         << "Comandos de DNS:" << endl
+         << "[--ns <server>] [--name <domain>] [--qtype <type>] [--mode <m>]" << endl
+         << "[--sni <s>] [--trust-anchor <file>] [--fanout <n>] [--workers <n>]" << endl
+         << "[--timeout <sec>] [--trace]" << endl
+         << "Comandos de Cache:" << endl
+         << "[--activate | --deactivate | --status]" << endl
+         << "[--purge-positive | --purge-negative | --purge-all]" << endl
+         << "[--list-positive | --list-negative | --list-all]" << endl
+         << "[--set-positive <n> | --set-negative <n>]" << endl
+         << "[--cache-put <n> <v> <t> | --cache-get <n> <v> <t>]" << endl;
 }
-
-Arguments::Arguments(int argc, char* argv[]) {parse(argc, argv);}
 
 void Arguments::parse(int argc, char* argv[])
 {
@@ -53,14 +60,16 @@ void Arguments::parse(int argc, char* argv[])
         {"activate", no_argument, nullptr, 1000},
         {"deactivate", no_argument, nullptr, 1001},
         {"status", no_argument, nullptr, 1002},
-        {"set-positive", required_argument, nullptr, 1003},
-        {"set-negative", required_argument, nullptr, 1004},
-        {"purge-positive", no_argument, nullptr, 1005},
-        {"purge-negative", no_argument, nullptr, 1006},
-        {"purge-all", no_argument, nullptr, 1007},
-        {"list-positive", no_argument, nullptr, 1008},
-        {"list-negative", no_argument, nullptr, 1009},
-        {"list-all", no_argument, nullptr, 1010},
+        {"purge-positive", no_argument, nullptr, 1003},
+        {"purge-negative", no_argument, nullptr, 1004},
+        {"purge-all", no_argument, nullptr, 1005},
+        {"list-positive", no_argument, nullptr, 1006},
+        {"list-negative", no_argument, nullptr, 1007},
+        {"list-all", no_argument, nullptr, 1008},
+        {"set-positive", required_argument, nullptr, 1009},
+        {"set-negative", required_argument, nullptr, 1010},
+        {"cache-put", required_argument, nullptr, 1011},
+        {"cache-get", required_argument, nullptr, 1012},
 
         {nullptr, 0, nullptr, 0}
     };
@@ -83,17 +92,19 @@ void Arguments::parse(int argc, char* argv[])
             case 'r': _trace = true; break;
 
             // comandos da cache
-            case 1000: cacheCommand_ = CacheCommand::Activate; break;
-            case 1001: cacheCommand_ = CacheCommand::Deactivate; break;
-            case 1002: cacheCommand_ = CacheCommand::Status; break;
-            case 1003: cacheCommand_ = CacheCommand::SetPositive; cacheValue_ = std::stoi(optarg); break;
-            case 1004: cacheCommand_ = CacheCommand::SetNegative; cacheValue_ = std::stoi(optarg); break;
-            case 1005: cacheCommand_ = CacheCommand::PurgePositive; break;
-            case 1006: cacheCommand_ = CacheCommand::PurgeNegative; break;
-            case 1007: cacheCommand_ = CacheCommand::PurgeAll; break;
-            case 1008: cacheCommand_ = CacheCommand::ListPositive; break;
-            case 1009: cacheCommand_ = CacheCommand::ListNegative; break;
-            case 1010: cacheCommand_ = CacheCommand::ListAll; break;
+            case 1000: _cacheCommand = CacheCommand::Activate; break;
+            case 1001: _cacheCommand = CacheCommand::Deactivate; break;
+            case 1002: _cacheCommand = CacheCommand::Status; break;
+            case 1003: _cacheCommand = CacheCommand::PurgePositive; break;
+            case 1004: _cacheCommand = CacheCommand::PurgeNegative; break;
+            case 1005: _cacheCommand = CacheCommand::PurgeAll; break;
+            case 1006: _cacheCommand = CacheCommand::ListPositive; break;
+            case 1007: _cacheCommand = CacheCommand::ListNegative; break;
+            case 1008: _cacheCommand = CacheCommand::ListAll; break;
+            case 1009: _cacheCommand = CacheCommand::SetPositive; break;
+            case 1010: _cacheCommand = CacheCommand::SetNegative; break;
+            case 1011: _cacheCommand = CacheCommand::CachePut; break;
+            case 1012: _cacheCommand = CacheCommand::CacheGet; break;
             default:
                 print_usage(argv[0]);
                 throw invalid_argument("Argumento inválido.");

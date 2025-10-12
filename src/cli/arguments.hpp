@@ -29,14 +29,16 @@ enum class CacheCommand
     Activate,
     Deactivate,
     Status,
-    SetPositive,
-    SetNegative,
     PurgePositive,
     PurgeNegative,
     PurgeAll,
     ListPositive,
     ListNegative,
-    ListAll
+    ListAll,
+    SetPositive,
+    SetNegative,
+    CachePut,
+    CacheGet
 };
 
 class Arguments
@@ -55,9 +57,8 @@ public:
     int get_workers() const { return _workers; }
     int get_timeout() const { return _timeout; }
     bool is_trace_enabled() const { return _trace; }
-
-    CacheCommand get_cache_command() const { return cacheCommand_; }
-    int get_cache_value() const { return cacheValue_; }
+    CacheCommand get_cache_command() const { return _cacheCommand; }
+    const optional<int>& get_cache_value() const { return _cacheValue; }
 
     void print_summary() const;
     static void print_usage(const char* prog);
@@ -77,8 +78,8 @@ private:
     int _timeout = 5;
     bool _trace = false;
 
-    CacheCommand cacheCommand_ = CacheCommand::None;
-    int cacheValue_ = 0; // set positive/negative
-
     void parse(int argc, char* argv[]);
+    
+    CacheCommand _cacheCommand = CacheCommand::None;
+    optional<int> _cacheValue = 0;
 };
