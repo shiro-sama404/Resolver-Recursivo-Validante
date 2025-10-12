@@ -1,4 +1,3 @@
-/* Còdigo Fernanda*/
 #pragma once
 
 #include <cstdlib>
