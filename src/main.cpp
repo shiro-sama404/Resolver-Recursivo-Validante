@@ -6,6 +6,12 @@
 
 using namespace std;
 
+void error_message(const string& msg, const uint16_t exit_code = 1) {
+    cerr << msg << endl;
+    if (exit_code)
+        exit(EXIT_FAILURE);
+}
+
 uint16_t qtype_to_uint16(const string& qtype_str) //Para traduzir a string
 {
     static const unordered_map<string, uint16_t> qtype_map = { {"A", 1}, {"NS", 2}, {"CNAME", 5}, {"SOA", 6}, {"MX", 15}, {"TXT", 16}, {"AAAA", 28} };
@@ -24,27 +30,80 @@ int main(int argc, char* argv[])
 {
     try {
         Arguments args(argc, argv);
+        string valor;
 
         switch (args.get_cache_command()) 
         {
             case CacheCommand::Activate:
-                cout << "Iniciando Cache Daemon..." << endl;
                 {
                     CacheDaemon daemon;
                     daemon.run();
                 }
                 return 0;
 
+            case CacheCommand::Deactivate:
+                CacheDaemon::send_command("DEACTIVATE");
+                return 0;
+                    
             case CacheCommand::Status:
                 CacheDaemon::send_command("STATUS");
                 return 0;
-
+                
             case CacheCommand::PurgeAll:
-                CacheDaemon::send_command("PURGE_ALL");
+                CacheDaemon::send_command("PURGE ALL");
+                return 0;
+                
+            case CacheCommand::PurgePositive:
+                CacheDaemon::send_command("PURGE POSITIVE");
                 return 0;
 
-            case CacheCommand::Deactivate:
-                CacheDaemon::send_command("DEACTIVATE");
+            case CacheCommand::PurgeNegative:
+                CacheDaemon::send_command("PURGE NEGATIVE");
+                return 0;
+
+            case CacheCommand::ListAll:
+                CacheDaemon::send_command("LIST ALL");
+                return 0;
+                
+            case CacheCommand::ListPositive:
+                CacheDaemon::send_command("LIST POSITIVE");
+                return 0;
+
+            case CacheCommand::ListNegative:
+                CacheDaemon::send_command("LIST NEGATIVE");
+                return 0;
+
+            case CacheCommand::SetPositive:
+                if (argc < 3)
+                    error_message("Erro: uso correto: --set positive <tamanho>\n");
+                valor = argv[2];
+                CacheDaemon::send_command("SET POSITIVE " + valor);
+                return 0;
+
+            case CacheCommand::SetNegative:
+                if (argc < 3)
+                    error_message("Erro: uso correto: --set negative <tamanho>\n");
+                valor = argv[2];
+                CacheDaemon::send_command("SET NEGATIVE" + valor);
+                return 0;
+            case CacheCommand::CachePut:
+                if (argc < 5)
+                    error_message("Erro: uso correto: --cache put <nome> <valor> <ttl>\n");
+                {
+                    string nome = argv[2];
+                    string valor_ip = argv[3];
+                    string ttl = argv[4];
+                    CacheDaemon::send_command("CACHE PUT " + nome + " " + valor_ip + " " + ttl);
+                }
+                return 0;
+
+            case CacheCommand::CacheGet:
+                if (argc < 3)
+                    error_message("Erro: uso correto: --cache get <nome>\n");
+                {
+                    string nome = argv[2];
+                    CacheDaemon::send_command("CACHE GET " + nome);
+                }
                 return 0;
 
             default:
