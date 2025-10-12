@@ -1,6 +1,5 @@
 #include "dns_mensagem.hpp"
 
-
 using namespace std;
 
 DNSMensagem::DNSMensagem() {
@@ -94,6 +93,7 @@ uint16_t lerUint16(const std::vector<uint8_t>& dados, size_t& pos) {
     return valor;
 }
 
+
 // criei uma função diferente para ler dados de 32 bits porque ele só é lido uma vez
 // se fosse criar uma função geral, teria que ficar convertendo os dados de 16 bits toda vez que chamasse
 // afinal, 16 bits cabem em 32, mas 32 não cabem em 16
@@ -111,6 +111,7 @@ uint32_t lerUint32(const std::vector<uint8_t>& dados, size_t& pos) {
     pos += 4;    
     return valor;
 }
+
 
 
 string lerNome(const vector<uint8_t>& dados, size_t& pos) {
@@ -159,6 +160,7 @@ string lerNome(const vector<uint8_t>& dados, size_t& pos) {
     return nome;
 }
 
+
       
 
 void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
@@ -170,11 +172,14 @@ void DNSMensagem::lerCabecalho(const std::vector<uint8_t>& dados, size_t& pos) {
     cabecalho.arcount = lerUint16(dados, pos);
 }
 
+
 void DNSMensagem::lerPergunta(const std::vector<uint8_t>& dados, size_t& pos) {
     pergunta.qname  = lerNome(dados, pos);
     pergunta.qtype  = lerUint16(dados, pos);
     pergunta.qclass = lerUint16(dados, pos);
 }
+
+
 
 // funçoes de decodificaçao
 
@@ -187,10 +192,12 @@ void DNSMensagem::decodeA(ResourceRecords& rr) {
                              std::to_string(rr.rdata[3]);
     } 
     else {
-        rr.resposta_parser = "Registro A inválido";
+        rr.resposta_parser = "ERRO: Registro A inválido. Esperado 4 bytes, recebeu " + to_string(rr.rdlen);
     }
 
 }
+
+
 
 void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
 
@@ -208,51 +215,80 @@ void DNSMensagem::decodeAAAA(ResourceRecords& rr) {
         rr.resposta_parser = std::string(buf);
     } 
     else {
-        rr.resposta_parser = "Registro AAAA inválido";
+        rr.resposta_parser = "ERRO: Registro AAAA inválido. Esperado 16 bytes, recebeu " + to_string(rr.rdlen);
     }
 
 }
 
+
+
 void DNSMensagem::decodeCNAME(ResourceRecords& rr) {
-    size_t pos_local = 0;
-    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+    
+    try { 
+        size_t pos_local = 0;
+        rr.resposta_parser = lerNome(rr.rdata, pos_local); 
+    } 
+    
+    catch (const exception& erro) {
+        rr.resposta_parser = "ERRO ao decodificar CNAME: " + string(erro.what());
+    }
 }
+
+
 
 // descobre quem é o servidor autoritativo do dominio
 // ou seja, dada uma URL
 // ele descobre pra quem tem que perguntar para descobrir o IP
 void DNSMensagem::decodeNS(ResourceRecords& rr) {
-    size_t pos_local = 0;
-    rr.resposta_parser = lerNome(rr.rdata, pos_local);
+   
+    try {
+        size_t pos_local = 0;
+        rr.resposta_parser = lerNome(rr.rdata, pos_local);
+    } 
+    
+    catch (const exception& erro) {
+        rr.resposta_parser = "ERRO ao decodificar NS: " + string(erro.what());
+    }
 }
 
+
+
+
 void DNSMensagem::decodeSOA(ResourceRecords& rr) {
-    size_t pos_local = 0;
-    std::string mname = lerNome(rr.rdata, pos_local);
-    std::string rname = lerNome(rr.rdata, pos_local);
+    
+    try {
+        size_t pos_local = 0;
+        string mname = lerNome(rr.rdata, pos_local);
+        string rname = lerNome(rr.rdata, pos_local);
 
-    if (pos_local + 20 <= rr.rdata.size()) {
+    
+        if (pos_local + 20 <= rr.rdata.size()) {
+            uint32_t serial  = (rr.rdata[pos_local] << 24) | (rr.rdata[pos_local+1] << 16) |
+                               (rr.rdata[pos_local+2] << 8) | rr.rdata[pos_local+3];
+            uint32_t refresh = (rr.rdata[pos_local+4] << 24) | (rr.rdata[pos_local+5] << 16) |
+                               (rr.rdata[pos_local+6] << 8) | rr.rdata[pos_local+7];
+            uint32_t retry   = (rr.rdata[pos_local+8] << 24) | (rr.rdata[pos_local+9] << 16) |
+                               (rr.rdata[pos_local+10] << 8) | rr.rdata[pos_local+11];
+            uint32_t expire  = (rr.rdata[pos_local+12] << 24) | (rr.rdata[pos_local+13] << 16) |
+                               (rr.rdata[pos_local+14] << 8) | rr.rdata[pos_local+15];
+            uint32_t minimum = (rr.rdata[pos_local+16] << 24) | (rr.rdata[pos_local+17] << 16) |
+                               (rr.rdata[pos_local+18] << 8) | rr.rdata[pos_local+19];
 
-        uint32_t serial  = (rr.rdata[pos_local] << 24) | (rr.rdata[pos_local+1] << 16) |
-                           (rr.rdata[pos_local+2] << 8) | rr.rdata[pos_local+3];
-        uint32_t refresh = (rr.rdata[pos_local+4] << 24) | (rr.rdata[pos_local+5] << 16) |
-                           (rr.rdata[pos_local+6] << 8) | rr.rdata[pos_local+7];
-        uint32_t retry   = (rr.rdata[pos_local+8] << 24) | (rr.rdata[pos_local+9] << 16) |
-                           (rr.rdata[pos_local+10] << 8) | rr.rdata[pos_local+11];
-        uint32_t expire  = (rr.rdata[pos_local+12] << 24) | (rr.rdata[pos_local+13] << 16) |
-                           (rr.rdata[pos_local+14] << 8) | rr.rdata[pos_local+15];
-        uint32_t minimum = (rr.rdata[pos_local+16] << 24) | (rr.rdata[pos_local+17] << 16) |
-                           (rr.rdata[pos_local+18] << 8) | rr.rdata[pos_local+19];
-
-        rr.resposta_parser = "MNAME: " + mname + ", RNAME: " + rname +
-                             ", SERIAL: " + std::to_string(serial) +
-                             ", REFRESH: " + std::to_string(refresh) +
-                             ", RETRY: " + std::to_string(retry) +
-                             ", EXPIRE: " + std::to_string(expire) +
-                             ", MINIMUM: " + std::to_string(minimum);
+            rr.resposta_parser = "MNAME: " + mname + ", RNAME: " + rname +
+                                 ", SERIAL: " + to_string(serial) +
+                                 ", REFRESH: " + to_string(refresh) +
+                                 ", RETRY: " + to_string(retry) +
+                                 ", EXPIRE: " + to_string(expire) +
+                                 ", MINIMUM: " + to_string(minimum);
+        } 
+        
+        else {
+            rr.resposta_parser = "ERRO: SOA inválido. Dados insuficientes";
+        }
     } 
-    else {
-        rr.resposta_parser = "SOA inválido";
+    
+    catch (const exception& erro) {
+        rr.resposta_parser = "ERRO ao decodificar SOA: " + string(erro.what());
     }
 
 }
@@ -260,90 +296,146 @@ void DNSMensagem::decodeSOA(ResourceRecords& rr) {
 void DNSMensagem::decodeMX(ResourceRecords& rr) {
 
     if (rr.rdlen < 3) {
-        rr.resposta_parser = "MX inválido";
+        rr.resposta_parser = "ERRO: MX inválido. RDLength insuficiente: " + to_string(rr.rdlen);
         return;
     }
 
     uint16_t preferencia = (rr.rdata[0] << 8) | rr.rdata[1]; // quanto menor o numero maior a prioridade
     size_t pos_local = 2;
-    std::string destino = lerNome(rr.rdata, pos_local);
 
-    rr.resposta_parser = "Preference: " + std::to_string(preferencia) + ", Exchange: " + destino;
-}
 
-void DNSMensagem::decodeTXT(ResourceRecords& rr) {
-    std::string txt;
-    size_t pos_local = 0;
-
-    while (pos_local < rr.rdata.size()) {
-        uint8_t len = rr.rdata[pos_local++];
-
-        if (pos_local + len > rr.rdata.size()) 
-            break;
-        
-        if (!txt.empty()) 
-            txt += " ";
-        
-        txt += std::string(rr.rdata.begin() + pos_local, rr.rdata.begin() + pos_local + len);
-        pos_local += len;
+    try {
+    
+        string destino = lerNome(rr.rdata, pos_local);
+        rr.resposta_parser = "Preference: " + to_string(preferencia) + ", Exchange: " + destino;
+    } 
+    
+    catch (const exception& erro) {
+        rr.resposta_parser = "ERRO ao decodificar MX: " + string(erro.what());
     }
 
-    rr.resposta_parser = txt;
 }
+
+
+
+
+
+void DNSMensagem::decodeTXT(ResourceRecords& rr) {
+    
+    try {
+        string txt;
+        size_t pos_local = 0;
+
+        while (pos_local < rr.rdata.size()) {
+            uint8_t len = rr.rdata[pos_local++];
+            
+            if (pos_local + len > rr.rdata.size()) 
+                break;
+
+            if (!txt.empty()) 
+                txt += " ";
+
+            txt += string(rr.rdata.begin() + pos_local, rr.rdata.begin() + pos_local + len);
+            
+            pos_local += len;
+        }
+
+        rr.resposta_parser = txt;
+    } 
+    
+    catch (const exception& erro) {
+        rr.resposta_parser = "ERRO ao decodificar TXT: " + string(erro.what());
+    }
+
+}
+
+
+
 
 void DNSMensagem::decodeOPT(ResourceRecords& rr) {
 
-    if (rr.rdata.size() < 3) {
+    if (rr.rdlen < 0) {
         rr.resposta_parser = "OPT RR inválido (dados insuficientes)";
         return;
     }
 
+
+    edns_udp_size = rr.classe;
+
+  
     uint32_t ttl = rr.ttl;
     uint8_t ext_rcode = (ttl >> 24) & 0xFF;
     uint8_t version   = (ttl >> 16) & 0xFF;
     uint16_t z        = ttl & 0xFFFF;
 
-    edns_udp_size = rr.classe; //tamanho do dado
-    edns_version  = version;
-    edns_z        = z;
-   
-    rr.resposta_parser = "OPT RR (EDNS), UDP size=" + std::to_string(edns_udp_size) +
-                         ", version=" + std::to_string(edns_version);
+    edns_version = version;
+    edns_z       = z;
 
-     if (ext_rcode != 0) {
-        cout << "Erro EDNS: " << (int)ext_rcode << endl;
+    // Verifica versão EDNS
+    if (version != 0) {
+        cerr << "Aviso: versão EDNS não suportada (" << (int)version << "), ignorando OPT RR." << endl;
+        rr.resposta_parser = "OPT RR ignorado devido à versão EDNS não suportada";
+        return;
     }
 
+    bool dnssec_ok = (z & 0x8000) != 0; 
 
 
+    if (ext_rcode != 0) {
+        cerr << "Erro EDNS: extended RCODE=" << (int)ext_rcode << endl;
+    }
+
+    rr.resposta_parser += "UDP size=" + to_string(edns_udp_size) + ", ";
+
+    // Lê as opções EDNS
     size_t pos = 0;
+    edns_options.clear(); 
+
     
     while (pos + 4 <= rr.rdata.size()) {
+        
         EDNSOption opt;
         opt.code = (rr.rdata[pos] << 8) | rr.rdata[pos+1];
         uint16_t len = (rr.rdata[pos+2] << 8) | rr.rdata[pos+3];
         pos += 4;
-    
-        if (pos + len > rr.rdata.size()) 
+
+        if (pos + len > rr.rdata.size()) {
+            cerr << "Aviso: tamanho de opção EDNS maior que restante do rdata" << endl;
             break;
-    
+        }
+
         opt.data.assign(rr.rdata.begin() + pos, rr.rdata.begin() + pos + len);
-        edns_options.push_back(opt);
         pos += len;
+
+        edns_options.push_back(opt);
+
+        rr.resposta_parser += "Opções EDNS presentes: " + to_string(edns_options.size());
+
     }
+
+    if (rr.resposta_parser.empty())
+        rr.resposta_parser = "OPT RR vazio ou inválido";
 }
+
+
 
 void DNSMensagem::decodeDS(ResourceRecords& rr) {
-    rr.resposta_parser = "Registro DS (Delegation Signer), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+    rr.resposta_parser = "Registro DS (Delegation Signer), dados brutos: " + to_string(rr.rdlen) + " bytes";
 }
+
+
 
 void DNSMensagem::decodeRRSIG(ResourceRecords& rr) {
-    rr.resposta_parser = "RRSIG RR (assinatura DNSSEC), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+    rr.resposta_parser = "RRSIG RR (assinatura DNSSEC), dados brutos: " + to_string(rr.rdlen) + " bytes";
 }
 
+
+
 void DNSMensagem::decodeDNSKEY(ResourceRecords& rr) {
-    rr.resposta_parser = "DNSKEY RR (chave pública), dados brutos: " + std::to_string(rr.rdlen) + " bytes";
+    rr.resposta_parser = "DNSKEY RR (chave pública), dados brutos: " + to_string(rr.rdlen) + " bytes";
 }
+
+
 
 
 ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size_t& pos) {
@@ -416,6 +508,85 @@ ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size
     return rr;
 }
 
+/*ResourceRecords DNSMensagem::lerRegistro(const std::vector<uint8_t>& dados, size_t& pos) {
+    ResourceRecords rr;
+
+    try {
+        rr.nome   = lerNome(dados, pos);
+        rr.tipo   = lerUint16(dados, pos);
+        rr.classe = lerUint16(dados, pos);
+        rr.ttl    = lerUint32(dados, pos);
+        rr.rdlen  = lerUint16(dados, pos);
+
+        if (pos + rr.rdlen > dados.size()) 
+            throw std::runtime_error("RDLength ultrapassa tamanho do pacote DNS");
+
+        rr.rdata.assign(dados.begin() + pos, dados.begin() + pos + rr.rdlen);
+        pos += rr.rdlen;
+
+        // Decodifica conforme o tipo do RR
+        switch (rr.tipo) {
+            case 1: decodeA(rr); break;
+            case 2: decodeNS(rr); break;
+            case 5: decodeCNAME(rr); break;
+            case 6: decodeSOA(rr); break;
+            case 15: decodeMX(rr); break;
+            case 16: decodeTXT(rr); break;
+            case 28: decodeAAAA(rr); break;
+            case 41: decodeOPT(rr); break;
+            case 43: decodeDS(rr); break;
+            case 46: decodeRRSIG(rr); break;
+            case 48: decodeDNSKEY(rr); break;
+            default: rr.resposta_parser = "Tipo de Registro não suportado"; break;
+        }
+    } 
+    catch (const std::exception& e) {
+        cerr << "[ERRO] Falha ao ler RR do tipo " << rr.tipo 
+             << " para o nome '" << rr.nome << "' na posicao " << pos 
+             << ": " << e.what() << endl;
+        rr.resposta_parser = "Registro inválido ou corrompido"; // marca registro ruim
+    }
+
+    return rr;
+}
+
+
+void DNSMensagem::imprimirResposta() {
+    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "ID:        " << cabecalho.id << endl;
+    cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
+    cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
+    cout << "ANCOUNT:   " << cabecalho.ancount << endl;
+    cout << "NSCOUNT:   " << cabecalho.nscount << endl;
+    cout << "ARCOUNT:   " << cabecalho.arcount << endl;
+
+    cout << "\n========= PERGUNTA =========\n";
+    cout << "Domínio:   " << pergunta.qname << endl;
+    cout << "Tipo:      " << pergunta.qtype << endl;
+    cout << "Classe:    " << pergunta.qclass << endl;
+
+    auto imprimirRR = [](const vector<ResourceRecords>& rrs, const string& secao) {
+        cout << "\n========= " << secao << " =========\n";
+        if (rrs.empty()) {
+            cout << "Nenhum registro nesta seção.\n";
+            return;
+        }
+        for (const auto& rr : rrs) {
+            cout << "Nome: " << rr.nome 
+                 << ", Tipo: " << rr.tipo 
+                 << ", Classe: " << rr.classe 
+                 << ", TTL: " << rr.ttl 
+                 << ", RDLENGTH: " << rr.rdlen 
+                 << "\nConteúdo: " << rr.resposta_parser << "\n\n";
+        }
+    };
+
+    imprimirRR(respostas, "RESPOSTAS");
+    imprimirRR(autoridades, "AUTORIDADES");
+    imprimirRR(adicionais, "ADICIONAIS");
+}
+*/
+
 void DNSMensagem::lerRespostas(const std::vector<uint8_t>& dados, size_t& pos, int count) {
     for (int i = 0; i < count; ++i)
         respostas.push_back(lerRegistro(dados, pos));
@@ -432,6 +603,8 @@ void DNSMensagem::lerAdicional(const std::vector<uint8_t>& dados, size_t& pos, i
 }
 
 void DNSMensagem::parseResposta(const std::vector<uint8_t>& dados) {
+
+    
     if (dados.size() < 12)
         throw std::runtime_error("Pacote DNS inválido (muito pequeno)");
 
@@ -443,6 +616,53 @@ void DNSMensagem::parseResposta(const std::vector<uint8_t>& dados) {
     lerRespostas(dados, pos, cabecalho.ancount);
     lerAutoridade(dados, pos, cabecalho.nscount);
     lerAdicional(dados, pos, cabecalho.arcount);
+
+    // -------------------
+    // Integração com Cache
+    // -------------------
+    // Se a cache estiver pronta, você pode adicionar algo como:
+    /*
+    for (const auto& rr : respostas) {
+        if (rr.tipo != 0 && rr.rdlen > 0) {  // Registro válido
+            CacheDaemon::addEntry(pergunta.qname, rr.resposta_parser, rr.ttl); // addentry tem que substituir pela função correta
+        }
+    }
+
+    if (respostas.empty()) { // Nenhuma resposta: cache negativa
+        CacheDaemon::addNegative(pergunta.qname, 60); // TTL default 60s // idem para addnegative
+    }
+
+
+    // --------------------------------------------------------------
+    // INTEGRAÇÃO COM CACHE (comentado até a cache estar pronta)
+    // --------------------------------------------------------------
+    /*
+    auto now = std::chrono::steady_clock::now();
+
+    // Armazenar respostas positivas na cache
+    for (auto& rr : respostas) {
+        string chave = rr.nome + ":" + std::to_string(rr.tipo);
+        CacheEntry entry;
+        entry.value = rr.resposta_parser;
+        entry.expiration = now + std::chrono::seconds(rr.ttl);
+        // _positiveCache[chave] = entry;  // descomentar quando a cache do Artur estiver pronta
+    }
+
+    // Se não houver respostas, armazenar negativo (NXDOMAIN)
+    if (respostas.empty() && cabecalho.flags & 0x0003) { // RCODE = 3 -> NXDOMAIN
+        string chave = pergunta.qname + ":" + std::to_string(pergunta.qtype);
+        CacheEntry entry;
+        entry.value = "NXDOMAIN";
+        entry.expiration = now + std::chrono::seconds(60); // TTL curto para cache negativa
+        // _negativeCache[chave] = entry;  // descomentar quando a cache do Artur estiver pronta
+    }
+    
+}
+
+   
+} 
+*/
+
 }
 
 void DNSMensagem::imprimirResposta() {
@@ -459,5 +679,43 @@ void DNSMensagem::imprimirResposta() {
     cout << "Domínio:   " << pergunta.qname << endl;
     cout << "Tipo:      " << pergunta.qtype << endl;
     cout << "Classe:    " << pergunta.qclass << endl;
+
+    /* void DNSMensagem::imprimirResposta() {
+    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "ID:        " << cabecalho.id << endl;
+    cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
+    cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
+    cout << "ANCOUNT:   " << cabecalho.ancount << endl;
+    cout << "NSCOUNT:   " << cabecalho.nscount << endl;
+    cout << "ARCOUNT:   " << cabecalho.arcount << endl;
+
+    cout << "\n========= PERGUNTA =========\n";
+    cout << "Domínio:   " << pergunta.qname << endl;
+    cout << "Tipo:      " << pergunta.qtype << endl;
+    cout << "Classe:    " << pergunta.qclass << endl;
+
+    auto imprimirRR = [](const vector<ResourceRecords>& rrs, const string& titulo) {
+        cout << "\n========= " << titulo << " =========\n";
+        if (rrs.empty()) {
+            cout << "Nenhum registro.\n";
+            return;
+        }
+
+        for (size_t i = 0; i < rrs.size(); ++i) {
+            const auto& rr = rrs[i];
+            cout << "[" << i+1 << "] Nome: " << rr.nome
+                 << ", Tipo: " << rr.tipo
+                 << ", Classe: " << rr.classe
+                 << ", TTL: " << rr.ttl
+                 << ", RDLength: " << rr.rdlen
+                 << "\n   Resposta: " << rr.resposta_parser << endl;
+        }
+    };
+
+    imprimirRR(respostas, "RESPOSTAS (Answer)");
+    imprimirRR(autoridades, "AUTORIDADES (Authority)");
+    imprimirRR(adicionais, "ADICIONAIS (Additional)");
+}
+*/
 
 }
