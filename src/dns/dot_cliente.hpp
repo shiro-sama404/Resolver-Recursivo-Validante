@@ -17,7 +17,7 @@
 class DOTCliente
 {
 public:
-    bool conectar();     
+    bool conectar(int timeout_seg = 5);
     bool enviarQuery(DNSMensagem& msg);
     bool receberResposta(DNSMensagem& msg);
 
