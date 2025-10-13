@@ -575,7 +575,7 @@ void DNSMensagem::parseResposta(const vector<uint8_t>& dados) {
 
 void DNSMensagem::imprimirResposta() {
 
-    cout << "\n========= CABEÇALHO DNS =========\n";
+    cout << "\n================== CABEÇALHO DNS ==================\n";
     cout << "ID:        " << cabecalho.id << endl;
     cout << "Flags:     0x" << hex << setw(4) << setfill('0') << cabecalho.flags << dec << endl;
     cout << "QDCOUNT:   " << cabecalho.qdcount << endl;
@@ -583,20 +583,20 @@ void DNSMensagem::imprimirResposta() {
     cout << "NSCOUNT:   " << cabecalho.nscount << endl;
     cout << "ARCOUNT:   " << cabecalho.arcount << endl;
 
-    cout << "\n========= PERGUNTA =========\n";
+    cout << "\n================== PERGUNTA ==================\n";
     cout << "Domínio:   " << pergunta.qname << endl;
     cout << "Tipo:      " << pergunta.qtype << endl;
     cout << "Classe:    " << pergunta.qclass << endl;
 
-    cout << "\n========= RESPOSTAS =========\n";
+    cout << "\n================== RESPOSTAS ==================\n";
     for (const auto& rr : respostas)
         cout << rr.nome << " -> " << rr.resposta_parser << endl;
 
-    cout << "\n========= AUTORIDADES =========\n";
+    cout << "\n================== AUTORIDADES ==================\n";
     for (const auto& rr : autoridades)
         cout << rr.nome << " -> " << rr.resposta_parser << endl;
 
-    cout << "\n========= ADICIONAIS =========\n";
+    cout << "\n================== ADICIONAIS ==================\n";
     for (const auto& rr : adicionais)
         cout << rr.nome << " -> " << rr.resposta_parser << endl;
 

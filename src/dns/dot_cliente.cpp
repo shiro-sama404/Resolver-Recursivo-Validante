@@ -42,7 +42,7 @@ DOTCliente::~DOTCliente() {
 
 bool DOTCliente::conectar(int timeout_seg) {
     
-    int certificados = mbedtls_x509_crt_parse_file(&trusted_cert, "cacert.pem");
+    int certificados = mbedtls_x509_crt_parse_file(&trusted_cert, "dns/cacert.pem");
     
     if (certificados != 0)
         throw runtime_error("Erro ao carregar cacert.pem: " + to_string(certificados));
