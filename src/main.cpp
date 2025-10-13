@@ -142,10 +142,19 @@ int main(int argc, char* argv[])
                 
                 if (!sucesso) {
                     try {
-                        DOTCliente dotClient(args.get_ns(), 853);
-                        if (dotClient.conectar()) {
+                       string servidor_dot;
+
+                        if (args.get_ns().empty()) {
+                            servidor_dot = "dns-google.com";
+                        } else {
+                            servidor_dot = args.get_ns();
+                        }
+
+                        DOTCliente dotCliente(servidor_dot, 853);
+
+                        if (dotCliente.conectar()) {
                             resposta_final.configurarConsulta(args.get_name(), qtype);
-                            if (dotClient.enviarQuery(resposta_final) && dotClient.receberResposta(resposta_final))
+                            if (dotCliente.enviarQuery(resposta_final) && dotCliente.receberResposta(resposta_final))
                                 sucesso = true;
                         }
                     } catch (const exception& e_dot) {
