@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 
-#include "arguments.hpp"
+#include "../cli/arguments.hpp"
 #include "dns_client.hpp"
 #include "dns_mensagem.hpp"
 #include "dot_cliente.hpp"

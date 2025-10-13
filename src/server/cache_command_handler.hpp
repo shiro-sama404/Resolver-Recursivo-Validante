@@ -1,7 +1,7 @@
 #pragma once
 #include <iostream>
 
-#include "arguments.hpp"
+#include "../cli/arguments.hpp"
 #include "cache_client.hpp"
 #include "cache_server.hpp"
 #include "../utils/consoleUtils.hpp"

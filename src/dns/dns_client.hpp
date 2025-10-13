@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "cache_client.hpp"
+#include "../server/cache_client.hpp"
 #include "dns_mensagem.hpp"
 
 using namespace std;
