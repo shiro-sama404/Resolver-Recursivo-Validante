@@ -1,9 +1,10 @@
-#include <iostream>
-#include <string>
+#pragma once
 #include <algorithm>
 #include <cctype>
-#include <unordered_map>
 #include <cstdint>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 using namespace std;
 
