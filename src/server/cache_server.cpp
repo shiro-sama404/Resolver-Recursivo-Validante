@@ -16,6 +16,7 @@ void CacheServer::run()
     _running = true;
 
     cout << "CacheDaemon ativo e escutando em " << _socketPath << endl;
+    _controller.processCommand("START_CLEANUP_THREAD " + to_string(_expired_purge_interval));
 
     accept_connections(server_fd);
 
@@ -36,6 +37,7 @@ string CacheServer::stop()
         close(sock);
     }
 
+    _controller.processCommand("STOP_CLEANUP_THREAD");
     return "[client_side] CacheDaemon encerrado.";
 }
 

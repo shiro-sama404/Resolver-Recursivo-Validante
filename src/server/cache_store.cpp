@@ -80,19 +80,23 @@ string CacheStore::list(CacheTarget target)
 
     if (target == CacheTarget::Positive || target == CacheTarget::All)
     {
-        out += "---- Cache Positiva ----\n";
-        out += " (" + to_string(_positiveCache.size()) + " entradas)\n";
+        out += "---- Cache Positiva ---- (" + to_string(_positiveCache.size()) + " entradas)\n";
         for (const auto& [k, v] : _positiveCache)
-            out += k + " → " + v.value + " (TTL=" + to_string(v.ttl) + ")\n";
+        {
+            int remaining = max(0, v.ttl - static_cast<int>(difftime(time(nullptr), v.timestamp)));
+            out += k + " → " + v.value + " (TTL=" + to_string(remaining) + ")\n";
+        }
     }
     if (target == CacheTarget::Negative || target == CacheTarget::All)
     {
         if (!out.empty())
             out += "\n";
-        out += "---- Cache Negativa ----\n";
-        out += " (" + to_string(_negativeCache.size()) + " entradas)\n";
+        out += "---- Cache Negativa ---- (" + to_string(_negativeCache.size()) + " entradas)\n";
         for (const auto& [k, v] : _negativeCache)
-            out += k + " → " + v.value + " (TTL=" + to_string(v.ttl) + ")\n";
+        {
+            int remaining = max(0, v.ttl - static_cast<int>(difftime(time(nullptr), v.timestamp)));
+            out += k + " → " + v.value + " (TTL=" + to_string(remaining) + ")\n";
+        }
     }
     return out.empty() ? "Cache vazia.\n" : out;
 }

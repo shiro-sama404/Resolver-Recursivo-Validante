@@ -17,6 +17,8 @@ enum class CacheTarget
     Invalid
 };
 
+enum class NegativeErrorType { NXDOMAIN, NODATA, SERVFAIL, UNKNOWN };
+
 struct CacheEntry
 {
     string value;

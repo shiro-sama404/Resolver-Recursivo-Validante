@@ -12,5 +12,5 @@ class CacheClient
 {
 public:
     static string send_command(const string& cmd);
-    static bool CacheClient::is_cache_active(int timeout_ms = 200);
+    static bool is_cache_active(int timeout_ms = 200);
 };

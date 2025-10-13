@@ -23,6 +23,7 @@ public:
 
 private:
     CacheController& _controller;
+    int _expired_purge_interval = 1; // segundos
     bool _running = true;
     const string _socketPath = "/tmp/resolver.sock";
 

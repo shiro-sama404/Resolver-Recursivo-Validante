@@ -7,15 +7,24 @@ string CacheController::processCommand(const string& cmd)
     istringstream iss(cmd);
     string action; iss >> action;
 
-    if (action == "CACHE_PUT")          return handlePut  (cmd.substr(action.size()), true);
-    if (action == "CACHE_PUT_NEGATIVE") return handlePut  (cmd.substr(action.size()), false);
-    if (action == "CACHE_GET")          return handleGet  (cmd.substr(action.size()), true);
-    if (action == "CACHE_GET_NEGATIVE") return handleGet  (cmd.substr(action.size()), false);
-    if (action == "PURGE")              return handlePurge(cmd.substr(action.size()));
-    if (action == "SET")                return handleSet  (cmd.substr(action.size()));
-    if (action == "LIST")               return handleList (cmd.substr(action.size()));
-    if (action == "STATUS")             return _store.status();
-    if (action == "SHUTDOWN")           return "SHUTDOWN\n";
+    if (action == "CACHE_PUT")            return handlePut  (cmd.substr(action.size()), true);
+    if (action == "CACHE_PUT_NEGATIVE")   return handlePut  (cmd.substr(action.size()), false);
+    if (action == "CACHE_GET")            return handleGet  (cmd.substr(action.size()), true);
+    if (action == "CACHE_GET_NEGATIVE")   return handleGet  (cmd.substr(action.size()), false);
+    if (action == "PURGE")                return handlePurge(cmd.substr(action.size()));
+    if (action == "SET")                  return handleSet  (cmd.substr(action.size()));
+    if (action == "LIST")                 return handleList (cmd.substr(action.size()));
+    if (action == "STATUS")               return _store.status();
+    if (action == "SHUTDOWN")             return "SHUTDOWN\n";
+    if (action == "START_CLEANUP_THREAD")
+    {
+        int expired_purge_interval; iss >> expired_purge_interval;
+        cout << "teste" << endl;
+        _store.startCleanupThread(expired_purge_interval);
+        cout << "teste2" << endl;
+        return "Thread de limpeza iniciada a cada " + to_string(expired_purge_interval) + "s.\n";
+    }
+    if (action == "STOP_CLEANUP_THREAD")   _store.stopCleanupThread (); return "";
 
     return "Erro: comando desconhecido.\n";
 }
@@ -27,9 +36,9 @@ string CacheController::handlePut(const string& args, bool positive)
     int ttl;
     ss >> key >> value >> ttl;
     if (key.empty() || value.empty() || !ss)
-        return "Erro: uso correto: --cache-put <key> <value> <ttl>\n";
+        return "Erro: uso correto: [--cache-put|--cache-put-negative] <key> <value> <ttl>\n";
     _store.put(key, value, ttl, positive);
-    return "OK: armazenado " + key + " -> " + value + " (TTL=" + to_string(ttl) + ")\n";;
+    return "OK: armazenado " + key + " -> " + value + " (TTL=" + to_string(ttl) + ")\n";
 }
 
 string CacheController::handleGet(const string& args, bool positive)
