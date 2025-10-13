@@ -1,11 +1,13 @@
 #pragma once
 
-#include <cstdlib>
 #include <cstdint>
-#include <string>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <string>
 #include <vector>
-#include <iomanip> 
+
+using namespace std;
 
 struct CabecalhoDNS {
     uint16_t id;      
@@ -53,7 +55,6 @@ public:
     std::vector<ResourceRecords> respostas;
     std::vector<ResourceRecords> autoridades;
     std::vector<ResourceRecords> adicionais;
-
 
     std::vector<EDNSOption> edns_options; // opções extras
 

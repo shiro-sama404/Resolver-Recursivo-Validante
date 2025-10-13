@@ -1,12 +1,9 @@
-#include "client.hpp"
+#include "dns_client.hpp"
 
 #define MAX_DEPTH 30
 
-using namespace std;
-
-std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std::string& nomeSer, uint16_t pServ, int tempoTO) 
+vector<uint8_t> DNSClient::udp(const vector<uint8_t>& pctC, const string& nomeSer, uint16_t pServ, int tempoTO) 
 {
-
     int descritor = socket(AF_INET, SOCK_DGRAM, 0);
     
     if (descritor < 0) 
@@ -43,8 +40,7 @@ std::vector<uint8_t> DNSClient::udp(const std::vector<uint8_t>& pctC, const std:
     return bufferR;
 }
 
-
-std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qtype) 
+vector<uint8_t> DNSClient::resolvedor(const string& name, uint16_t qtype) 
 {
     vector<string> nomeServ = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
     string nomeR = name;
@@ -100,7 +96,8 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
 
                 recv(descritorTCP, buffer_tamanho.data(), 2, 0);
 
-                if (recv(descritorTCP, buffer_tamanho.data(), 2, MSG_WAITALL) != 2) {
+                if (recv(descritorTCP, buffer_tamanho.data(), 2, MSG_WAITALL) != 2)
+                {
                     close(descritorTCP);
                     throw runtime_error("Erro ao receber tamanho da resposta TCP.");
                 }
@@ -123,7 +120,8 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
                 close(descritorTCP);
             }
 
-        } catch (const exception& e) 
+        }
+        catch (const exception& e)
         {
             cerr << "Erro em: " << nomeServ[0] << ": " << e.what() << endl;
             
@@ -153,11 +151,11 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
                     nomeR = rr.resposta_parser; 
                     cout << "Redirecionando CNAME para: " << nomeR << endl;
                     nomeServ = {"198.41.0.4"};
-                    goto prox; 
+                    goto prox;
                 }
             }
         }
-        if (msgResposta.cabecalho.nscount > 0) 
+        if (msgResposta.cabecalho.nscount > 0)
         {
             vector<string> ipsProxServ;
 
@@ -178,16 +176,14 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
                        
                         if( msgIpNS.cabecalho.ancount > 0)          
                            ipsProxServ.push_back(msgIpNS.respostas[0].resposta_parser);
-                         
                     }
                 }
-            }       
+            }
             if (!ipsProxServ.empty())
             {
                 nomeServ = ipsProxServ;
                 continue; 
             }
-
         }
         if (msgResposta.cabecalho.ancount == 0 && (msgResposta.cabecalho.flags & 0x000F) == 0) 
             if (msgResposta.cabecalho.nscount > 0) 
@@ -207,7 +203,7 @@ std::vector<uint8_t> DNSClient::resolvedor(const std::string& name, uint16_t qty
         cout << "Resposta nao encontrada (ou delegacao nao seguida)." << endl;
         return {};
 
-        prox:; 
+        prox:;
     }
 
     cout << "Limite de iteracoes atingido." << endl;

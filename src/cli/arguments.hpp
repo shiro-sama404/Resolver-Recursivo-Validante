@@ -38,7 +38,9 @@ enum class CacheCommand
     SetPositive,
     SetNegative,
     CachePut,
-    CacheGet
+    CachePutNegative,
+    CacheGet,
+    CacheGetNegative
 };
 
 class Arguments
@@ -57,29 +59,29 @@ public:
     int get_workers() const { return _workers; }
     int get_timeout() const { return _timeout; }
     bool is_trace_enabled() const { return _trace; }
+    bool has_dns_args() const { return _hasDNSArgs; }
     CacheCommand get_cache_command() const { return _cacheCommand; }
-    const optional<int>& get_cache_value() const { return _cacheValue; }
 
     void print_summary() const;
     static void print_usage(const char* prog);
     
     static string mode_to_string(Mode m);
     static Mode string_to_mode(const string& s);
-
+    
 private:
     string _ns;
     string _name;
     string _qtype;
-    Mode _mode = Mode::Unknown;
     optional<string> _sni;
     optional<string> _trust_anchor;
     int _fanout = 1;
     int _workers = 1;
     int _timeout = 5;
     bool _trace = false;
-
-    void parse(int argc, char* argv[]);
+    bool _hasDNSArgs = false;
     
+    Mode _mode = Mode::Unknown;
     CacheCommand _cacheCommand = CacheCommand::None;
-    optional<int> _cacheValue = 0;
+    
+    void parse(int argc, char* argv[]);
 };
