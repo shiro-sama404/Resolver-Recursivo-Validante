@@ -11,13 +11,13 @@ DOTCliente::DOTCliente(const string& servidor, int porta) : servidor(servidor), 
     mbedtls_x509_crt_init(&trusted_cert);
 }
 
-static int enviar_dados(void* ctx_socket, const unsigned char* dados_enviar, size_t tam_dados) {
+int DOTCliente::enviar_dados(void* ctx_socket, const unsigned char* dados_enviar, size_t tam_dados) {
     int descriptor_socket = *static_cast<int*>(ctx_socket);
     int bytes_send = send(descriptor_socket, dados_enviar, tam_dados, 0);
     return bytes_send;
 }
 
-static int receber_dados(void* ctx_socket, unsigned char* dados_enviar, size_t tam_dados) {
+int DOTCliente::receber_dados(void* ctx_socket, unsigned char* dados_enviar, size_t tam_dados) {
     int descriptor_socket = *static_cast<int*>(ctx_socket);
     int bytes_recv = recv(descriptor_socket, dados_enviar, tam_dados, 0);
     return bytes_recv;
