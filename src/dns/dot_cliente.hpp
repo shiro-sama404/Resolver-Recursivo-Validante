@@ -1,23 +1,22 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-#include <stdexcept>
 #include <cstring>
 #include <chrono>
-#include <thread>
 #include <fcntl.h>
+#include <iostream>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/error.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
+#include <netdb.h>
+#include <stdexcept>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/time.h>
-#include <netdb.h>
+#include <thread>
 #include <unistd.h>
-
-#include <mbedtls/ssl.h>
-#include <mbedtls/ctr_drbg.h>
-#include <mbedtls/entropy.h>
-#include <mbedtls/x509_crt.h>
-#include <mbedtls/error.h>
+#include <vector>
 
 #include "dns_mensagem.hpp"
 
