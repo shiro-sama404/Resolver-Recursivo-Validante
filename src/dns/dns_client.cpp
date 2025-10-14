@@ -1,211 +1,201 @@
 #include "dns_client.hpp"
 
-#define MAX_DEPTH 30
-
-vector<uint8_t> DNSClient::udp(const vector<uint8_t>& pctC, const string& nomeSer, uint16_t pServ, int tempoTO) 
+vector<uint8_t> DNSClient::resolve(const string& domain_name, uint16_t qtype)
 {
-    int descritor = socket(AF_INET, SOCK_DGRAM, 0);
+    vector<string> nameservers = {"198.41.0.4", "199.9.14.201", "192.33.4.12"};
     
-    if (descritor < 0) 
-        throw runtime_error("Erro em: udp()");
-    
-    struct timeval tEspera;
-    tEspera.tv_sec = tempoTO;
-    tEspera.tv_usec = 0;
-    
-    int resultOpt = setsockopt(descritor, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tEspera, sizeof(tEspera));
+    string current_name_to_query = domain_name;
+    int depth = 0;
 
-    struct sockaddr_in endServ;
-    memset(&endServ, 0, sizeof(endServ));
-    endServ.sin_family = AF_INET;
-    endServ.sin_port = htons(pServ);
-
-    int resultPton = inet_pton(AF_INET, nomeSer.c_str(), &endServ.sin_addr);
-
-    if (resultPton <= 0) 
-        throw invalid_argument("\nEndereço IP invalido.");
-    
-    int resultEnv = sendto(descritor, pctC.data(), pctC.size(), 0, (const struct sockaddr *)&endServ, sizeof(endServ));
-
-    vector<uint8_t> bufferR(512); 
-    socklen_t tamEnd = sizeof(endServ);
-    
-    ssize_t bytesR = recvfrom(descritor, bufferR.data(), bufferR.size(), 0, (struct sockaddr *)&endServ, &tamEnd);
-
-    if (!((resultOpt >= 0) && (resultEnv >= 0) && (bytesR >= 0)))
-        throw runtime_error("Erro em udp()");
-
-    bufferR.resize(bytesR);
-    close(descritor); 
-    return bufferR;
-}
-
-vector<uint8_t> DNSClient::resolvedor(const string& name, uint16_t qtype) 
-{
-    vector<string> nomeServ = {"198.41.0.4", "199.9.14.201", "192.33.4.12"}; 
-    string nomeR = name;
-    int qtd = 0;
-
-    while(qtd < MAX_DEPTH)
+    while (depth < MAX_DEPTH)
     {
-        qtd++;
+        depth++;
 
-        DNSMensagem msgConsulta;
-        msgConsulta.configurarConsulta(nomeR, qtype);
-        vector<uint8_t> pctC = msgConsulta.montarQuery();
-        vector<uint8_t> bytesResp;
+        DNSMensagem query_message;
+        query_message.configurarConsulta(current_name_to_query, qtype);
+        vector<uint8_t> query_packet = query_message.montarQuery();
         
-        try 
-        {
-            bytesResp = udp(pctC, nomeServ[0], 53, 5);
-            
-            uint16_t flags = bytesResp[2] * 256 + bytesResp[3];
-            bool respostaTruncada = (flags >> 9) & 1; 
-
-            if (respostaTruncada) 
-            {
-                cout << "\nResposta UDP truncada.\n" << endl;
-
-                int descritorTCP = socket(AF_INET, SOCK_STREAM, 0);
-                
-                if (descritorTCP < 0) 
-                    throw runtime_error("Falgou em criar o socket TCP.\n");
-
-                
-                struct sockaddr_in endServTCP;
-                memset(&endServTCP, 0, sizeof(endServTCP));
-                endServTCP.sin_family = AF_INET;
-                endServTCP.sin_port = htons(53); 
-                inet_pton(AF_INET, nomeServ[0].c_str(), &endServTCP.sin_addr);
-
-                if (connect(descritorTCP, (struct sockaddr*)&endServTCP, sizeof(endServTCP)) < 0) 
-                    throw runtime_error("Erro ao conectar via TCP.\n");
-            
-
-                uint16_t tamanho_net = htons(pctC.size());
-
-                vector<uint8_t> pctTCP;
-
-                pctTCP.push_back(tamanho_net >> 8);
-                pctTCP.push_back(tamanho_net & 0xFF);
-                pctTCP.insert(pctTCP.end(), pctC.begin(), pctC.end());
-                
-                send(descritorTCP, pctTCP.data(), pctTCP.size(), 0);
-
-                vector<uint8_t> buffer_tamanho(2);
-
-                recv(descritorTCP, buffer_tamanho.data(), 2, 0);
-
-                if (recv(descritorTCP, buffer_tamanho.data(), 2, MSG_WAITALL) != 2)
-                {
-                    close(descritorTCP);
-                    throw runtime_error("Erro ao receber tamanho da resposta TCP.");
-                }
-
-                uint16_t tamRsp = buffer_tamanho[0] * 256 + buffer_tamanho[1];
-                
-                bytesResp.resize(tamRsp); 
-
-                ssize_t totalRecebido = 0;
-                
-                while (totalRecebido < tamRsp) 
-                {
-                    ssize_t recebidoAgora = recv(descritorTCP, bytesResp.data() + totalRecebido, tamRsp - totalRecebido, 0);
-                    if (recebidoAgora <= 0) 
-                        break;
-                    
-                    totalRecebido += recebidoAgora;
-                }
-
-                close(descritorTCP);
-            }
-
-        }
-        catch (const exception& e)
-        {
-            cerr << "Erro em: " << nomeServ[0] << ": " << e.what() << endl;
-            
-            if (nomeServ.size() > 1) 
-            {
-                nomeServ.erase(nomeServ.begin());
-                continue;
-            }
-            return {}; 
-        }
-
-        DNSMensagem msgResposta;
-        msgResposta.parseResposta(bytesResp); 
-        msgResposta.imprimirResposta(); 
-
-        if (msgResposta.cabecalho.ancount > 0)
-        {
-            for (const auto& rr : msgResposta.respostas) 
-            {
-                if (rr.tipo == qtype) 
-                { 
-                    cout << "Resposta final encontrada." << endl;
-                    return bytesResp; 
-                }
-                if (rr.tipo == 5) 
-                {
-                    nomeR = rr.resposta_parser; 
-                    cout << "Redirecionando CNAME para: " << nomeR << endl;
-                    nomeServ = {"198.41.0.4"};
-                    goto prox;
-                }
-            }
-        }
-        if (msgResposta.cabecalho.nscount > 0)
-        {
-            vector<string> ipsProxServ;
-
-            for (const auto& rr_ns : msgResposta.autoridades) 
-            {
-                if (rr_ns.tipo == 2) 
-                { 
-                    string nHs = rr_ns.resposta_parser;
-
-                    DNSClient aux; 
-                    vector<uint8_t> bEndNS = aux.resolvedor(nHs, 1);
-            
-                     if (!bEndNS.empty()) 
-                    {
-                        DNSMensagem msgIpNS;
-                       
-                        msgIpNS.parseResposta(bEndNS);
-                       
-                        if( msgIpNS.cabecalho.ancount > 0)          
-                           ipsProxServ.push_back(msgIpNS.respostas[0].resposta_parser);
-                    }
-                }
-            }
-            if (!ipsProxServ.empty())
-            {
-                nomeServ = ipsProxServ;
-                continue; 
-            }
-        }
-        if (msgResposta.cabecalho.ancount == 0 && (msgResposta.cabecalho.flags & 0x000F) == 0) 
-            if (msgResposta.cabecalho.nscount > 0) 
-                for (const auto& rr : msgResposta.autoridades) 
-                    if (rr.tipo == 6) 
-                    { 
-                        cout << "Sem dados para o registro solicitado no dominio." << endl;
-                        return bytesResp; 
-                    }
-
-        if ((msgResposta.cabecalho.flags & 0x000F) == 3) 
-        {
-            cout << "Dominio nao encontrado." << endl;
-            return bytesResp; 
-        }
+        vector<uint8_t> response_bytes;
         
-        cout << "Resposta nao encontrada (ou delegacao nao seguida)." << endl;
-        return {};
+        if (nameservers.empty())
+            return {};
 
-        prox:;
+        response_bytes = execute_query(query_packet, nameservers[0]);
+
+        if (response_bytes.empty())
+        {
+            nameservers.erase(nameservers.begin());
+            continue;
+        }
+
+        DNSMensagem response_message;
+        response_message.parseResposta(response_bytes);
+
+        ResolutionState state = process_response(response_message, qtype, nameservers, current_name_to_query);
+
+        if (state == ResolutionState::ANSWER_FOUND)
+            return response_bytes;
+        if (state == ResolutionState::ERROR)
+            return response_bytes;
+        if (state == ResolutionState::CNAME_REDIRECT)
+            depth = 0;
     }
 
-    cout << "Limite de iteracoes atingido." << endl;
     return {};
+}
+
+vector<uint8_t> DNSClient::query_udp(const vector<uint8_t>& query_packet, const string& server_ip, int timeout_sec)
+{
+    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd < 0)
+        return {};
+
+    struct timeval timeout_val;
+    timeout_val.tv_sec = timeout_sec;
+    timeout_val.tv_usec = 0;
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout_val, sizeof(timeout_val));
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(53);
+
+    if (inet_pton(AF_INET, server_ip.c_str(), &server_addr.sin_addr) <= 0)
+    {
+        close(socket_fd);
+        return {};
+    }
+
+    sendto(socket_fd, query_packet.data(), query_packet.size(), 0, (const struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    vector<uint8_t> response_buffer(512);
+    socklen_t addr_len = sizeof(server_addr);
+    ssize_t bytes_received = recvfrom(socket_fd, response_buffer.data(), response_buffer.size(), 0, (struct sockaddr *)&server_addr, &addr_len);
+    
+    close(socket_fd);
+
+    if (bytes_received < 0)
+        return {};
+
+    response_buffer.resize(bytes_received);
+    return response_buffer;
+}
+
+vector<uint8_t> DNSClient::query_tcp(const vector<uint8_t>& query_packet, const string& server_ip)
+{
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd < 0)
+        return {};
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(53);
+    inet_pton(AF_INET, server_ip.c_str(), &server_addr.sin_addr);
+
+    if (connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0)
+    {
+        close(socket_fd);
+        return {};
+    }
+
+    uint16_t net_query_size = htons(query_packet.size());
+    vector<uint8_t> tcp_packet;
+    tcp_packet.push_back(net_query_size >> 8);
+    tcp_packet.push_back(net_query_size & 0xFF);
+    tcp_packet.insert(tcp_packet.end(), query_packet.begin(), query_packet.end());
+    
+    send(socket_fd, tcp_packet.data(), tcp_packet.size(), 0);
+
+    vector<uint8_t> size_buffer(2);
+    if (recv(socket_fd, size_buffer.data(), 2, MSG_WAITALL) != 2)
+    {
+        close(socket_fd);
+        return {};
+    }
+
+    uint16_t response_size = (size_buffer[0] << 8) | size_buffer[1];
+    vector<uint8_t> response_buffer(response_size);
+    ssize_t total_bytes_received = 0;
+    
+    while (total_bytes_received < response_size) {
+        ssize_t bytes_received_now = recv(socket_fd, response_buffer.data() + total_bytes_received, response_size - total_bytes_received, 0);
+        if (bytes_received_now <= 0)
+        {
+            close(socket_fd);
+            return {};
+        }
+        total_bytes_received += bytes_received_now;
+    }
+
+    close(socket_fd);
+    return response_buffer;
+}
+
+vector<uint8_t> DNSClient::execute_query(const vector<uint8_t>& query_packet, const string& server_ip)
+{
+    vector<uint8_t> response_bytes = query_udp(query_packet, server_ip, 5);
+
+    if (response_bytes.size() < 4)
+        return response_bytes;
+
+    uint16_t flags = (response_bytes[2] << 8) | response_bytes[3];
+    bool is_truncated = (flags >> 9) & 1;
+
+    if (is_truncated)
+        return query_tcp(query_packet, server_ip);
+    return response_bytes;
+}
+
+vector<string> DNSClient::get_delegated_ns_ips(const DNSMensagem& response_message)
+{
+    vector<string> next_server_ips;
+    for (const auto& rr_ns : response_message.autoridades)
+        if (rr_ns.tipo == 2)
+        { 
+            string ns_hostname = rr_ns.resposta_parser;
+            DNSClient aux_client;
+            vector<uint8_t> ns_address_bytes = aux_client.resolve(ns_hostname, 1);
+            
+            if (!ns_address_bytes.empty())
+            {
+                DNSMensagem ns_ip_message;
+                ns_ip_message.parseResposta(ns_address_bytes);
+                if (ns_ip_message.cabecalho.ancount > 0 && ns_ip_message.respostas[0].tipo == 1)
+                    next_server_ips.push_back(ns_ip_message.respostas[0].resposta_parser);
+            }
+        }
+    return next_server_ips;
+}
+
+DNSClient::ResolutionState DNSClient::process_response
+(const DNSMensagem& response_message,uint16_t qtype, vector<string>& current_nameservers, string& next_query_name)
+{
+    if (response_message.cabecalho.ancount > 0)
+        for (const auto& rr : response_message.respostas) {
+            if (rr.tipo == qtype)
+                return ResolutionState::ANSWER_FOUND;
+            if (rr.tipo == 5)
+            {
+                next_query_name = rr.resposta_parser;
+                current_nameservers = {"198.41.0.4", "199.9.14.201", "192.33.4.12"};
+                return ResolutionState::CNAME_REDIRECT;
+            }
+        }
+
+    if (response_message.cabecalho.nscount > 0)
+    {
+        vector<string> next_ips = get_delegated_ns_ips(response_message);
+        if (!next_ips.empty())
+        {
+            current_nameservers = next_ips;
+            return ResolutionState::DELEGATION;
+        }
+    }
+    
+    uint16_t rcode = response_message.cabecalho.flags & 0x000F;
+    if (rcode == 3 || rcode == 0 && response_message.cabecalho.ancount == 0)
+        return ResolutionState::ANSWER_FOUND;
+
+    return ResolutionState::ERROR;
 }
