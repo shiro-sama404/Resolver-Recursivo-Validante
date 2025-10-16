@@ -1,38 +1,48 @@
 #pragma once
-#include <cstring>
-#include <csignal>
+
 #include <filesystem>
-#include <fcntl.h>
-#include <iostream>
+#include <string>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 
 #include "cache_controller.hpp"
+#include "cache_command_parser.hpp"
 
+/**
+ * @brief Gerencia o ciclo de vida e a comunicação de rede do servidor de cache (daemon).
+ */
 class CacheServer
 {
 public:
-    explicit CacheServer(CacheController& controller) :
-    _controller(controller), _running(false) {};
-    
+    /**
+     * @brief Construtor que recebe uma referência para o CacheController.
+     * @param controller A instância de CacheController que processará os comandos.
+     */
+    explicit CacheServer(CacheController& controller)
+        : _controller(controller), _is_running(false) {};
+
+    /**
+     * @brief Inicia o servidor, transforma-o em daemon e começa a aceitar conexões.
+     */
     void run();
-    string stop();
+
+    /**
+     * @brief Sinaliza para o servidor em execução para que ele desligue.
+     */
+    void stop();
 
 private:
-    CacheController& _controller;
-    int _expired_purge_interval = 1; // segundos
-    bool _running = true;
-    const string _socketPath = "/tmp/resolver.sock";
-
-    void check_existing_instance() const;
+    void checkExistingInstance() const;
     void daemonize() const;
-    
-    void accept_connections(int server_fd);
-    void handle_client(int client_fd);
+    int setupSocket() const;
+    void acceptConnections(int server_fd);
+    void handleClient(int client_fd);
     void cleanup(int server_fd) const;
 
-    int setup_socket() const;
+    CacheController& _controller;
+    int _expired_purge_interval = 10; // segundos
+    bool _is_running = true;
+    const std::string _socket_path = "/tmp/resolver.sock";
 };
