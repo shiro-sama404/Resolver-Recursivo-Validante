@@ -51,13 +51,14 @@ O executável `resolver` possui dois modos de operação principais: realizar co
 A sintaxe básica para uma consulta é: ```./build/bin/resolver --name <domínio> --qtype <tipo>```
 
 Principais Argumentos de Consulta:
-Argumento	Descrição	Exemplo de Uso
---name	(Obrigatório) O nome de domínio a ser consultado.	--name google.com
---qtype	O tipo de registro a ser solicitado (A, AAAA, MX, etc.).	--qtype AAAA
---ns	O endereço IP do servidor de nomes a ser consultado. Padrão: 8.8.8.8.	--ns 1.1.1.1
---mode	O modo de operação do resolvedor. Padrão: recursive.	--mode iterative
---trace	Ativa o rastreamento detalhado da resolução, exibindo cada passo.	--trace
---sni	Define o Server Name Indication para conexões DoT.	--sni cloudflare-dns.com
+| Argumento	| Descrição |	Exemplo de Uso |
+| --------- | --------- | ---------------- |
+|--name |	(Obrigatório) O nome de domínio a ser consultado. |	--name google.com |
+|--qtype |	O tipo de registro a ser solicitado (A, AAAA, MX, etc.).	| --qtype AAAA |
+|--ns |	O endereço IP do servidor de nomes a ser consultado. Padrão: 8.8.8.8. |	--ns 1.1.1.1 |
+|--mode |	O modo de operação do resolvedor. Padrão: recursive.	| --mode iterative |
+|--trace |	Ativa o rastreamento detalhado da resolução, exibindo cada passo.	| --trace |
+|--sni |	Define o Server Name Indication para conexões DoT.	| --sni cloudflare-dns.com |
 
 Exemplos de Comandos:
 ```
@@ -91,13 +92,13 @@ Outros Comandos de Gerenciamento
 | :---------------- | -----                                                               |
 | --status          | Exibe o número de entradas atuais e a capacidade máxima das caches. |
 | -list-positive    | Lista todas as entradas na cache positiva.                          |
-|--list-negative    |	Lista todas as entradas na cache negativa.                          |
+|--list-negative    |	Lista todas as entradas na cache negativa.                        |
 |--list-all	        | Lista o conteúdo de ambas as caches.                                |
-|--purge-positive   |	Limpa (expurga) todas as entradas da cache positiva.                |
-|--purge-negative   |	Limpa (expurga) todas as entradas da cache negativa.                |
-|--purge-all        |	Limpa ambas as caches.                                              |
-|--set-positive <n> |	Define um novo tamanho máximo n para a cache positiva.              |
-|--set-negative <n> |	Define um novo tamanho máximo n para a cache negativa.              |
+|--purge-positive   |	Limpa (expurga) todas as entradas da cache positiva.              |
+|--purge-negative   |	Limpa (expurga) todas as entradas da cache negativa.              |
+|--purge-all        |	Limpa ambas as caches.                                            |
+|--set-positive <n> |	Define um novo tamanho máximo n para a cache positiva.            |
+|--set-negative <n> |	Define um novo tamanho máximo n para a cache negativa.            |
 
 Exemplo de Fluxo de Cache:
 
