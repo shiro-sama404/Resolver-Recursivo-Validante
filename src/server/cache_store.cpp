@@ -1,147 +1,142 @@
 #include "cache_store.hpp"
 
-// Mapeamento
-static const unordered_map<string, CacheTarget> target_map = {
-    {"positive", CacheTarget::Positive},
-    {"negative", CacheTarget::Negative},
-    {"all", CacheTarget::All},
-    {"invalid", CacheTarget::Invalid}
-};
+using namespace std;
 
-string CacheStore::target_to_string(CacheTarget t)
+CacheTarget CacheStore::stringToTarget(const string& s)
 {
-    for (const auto& [key, val] : target_map) 
-        if (val == t)
-            return key;
-    return "invalid";
-}
-
-CacheTarget CacheStore::string_to_target(const string& s)
-{
-    auto it = target_map.find(s);
-    if (it != target_map.end())
-        return it->second;
+    if (s == "POSITIVE") return CacheTarget::Positive;
+    if (s == "NEGATIVE") return CacheTarget::Negative;
+    if (s == "ALL")      return CacheTarget::All;
     return CacheTarget::Invalid;
 }
 
-void CacheStore::put(const string& key, const string& value, int ttl, bool positive)
+void CacheStore::put(const CacheKey& key, const PositiveCacheEntry& entry)
 {
-    lock_guard<mutex> lock(_mtx);
-    auto& cache = positive ? _positiveCache : _negativeCache;
-
-    if (cache.size() >= (positive ? _maxPositive : _maxNegative))
-    {
-        if (!cache.empty())
-        {
-            auto oldest_it = cache.begin();
-            
-            for (auto it = next(cache.begin()); it != cache.end(); ++it)
-                if (it->second.timestamp < oldest_it->second.timestamp)
-                    oldest_it = it;
-            cache.erase(oldest_it);
-        }
-    }
-
-    cache[key] = {value, ttl, time(nullptr)};
+    lock_guard<mutex> lock(_mutex);
+    if (_positive_cache.size() >= _max_positive_size && _positive_cache.find(key) == _positive_cache.end())
+        if (!_positive_cache.empty())
+            _positive_cache.erase(_positive_cache.begin());
+    _positive_cache[key] = entry;
 }
 
-string CacheStore::get(const string& key, bool positive)
+void CacheStore::put(const CacheKey& key, const NegativeCacheEntry& entry)
 {
-    lock_guard<mutex> lock(_mtx);
-    auto& cache = positive ? _positiveCache : _negativeCache;
-    auto it = cache.find(key);
-    if (it == cache.end())
-        return "MISS\n";
+    lock_guard<mutex> lock(_mutex);
+    if (_negative_cache.size() >= _max_negative_size && _negative_cache.find(key) == _negative_cache.end())
+        if (!_negative_cache.empty())
+            _negative_cache.erase(_negative_cache.begin());
+    _negative_cache[key] = entry;
+}
 
-    auto& entry = it->second;
-    time_t now = time(nullptr);
-    if (difftime(now, entry.timestamp) > entry.ttl)
+optional<PositiveCacheEntry> CacheStore::getPositive(const CacheKey& key)
+{
+    lock_guard<mutex> lock(_mutex);
+    auto it = _positive_cache.find(key);
+    if (it == _positive_cache.end())
+        return nullopt; // Cache miss
+
+    if (time(nullptr) > it->second.expiration_time)
     {
-        cache.erase(it);
-        return "MISS (expired)\n";
+        _positive_cache.erase(it);
+        return nullopt; // Cache miss (expirado)
     }
 
-    return string("HIT ") + entry.value + " TTL=" + to_string(entry.ttl - (int)difftime(now, entry.timestamp)) + "\n";
+    return it->second; // Cache hit
+}
+
+optional<NegativeCacheEntry> CacheStore::getNegative(const CacheKey& key)
+{
+    lock_guard<mutex> lock(_mutex);
+    auto it = _negative_cache.find(key);
+    if (it == _negative_cache.end())
+        return nullopt;
+
+    if (time(nullptr) > it->second.expiration_time)
+    {
+        _negative_cache.erase(it);
+        return nullopt;
+    }
+
+    return it->second;
 }
 
 void CacheStore::purge(CacheTarget target)
 {
-    lock_guard<mutex> lock(_mtx);
+    lock_guard<mutex> lock(_mutex);
     if (target == CacheTarget::Positive || target == CacheTarget::All)
-        _positiveCache.clear();
+        _positive_cache.clear();
     if (target == CacheTarget::Negative || target == CacheTarget::All)
-        _negativeCache.clear();
+        _negative_cache.clear();
 }
 
-string CacheStore::list(CacheTarget target)
+pair<vector<pair<CacheKey, PositiveCacheEntry>>, vector<pair<CacheKey, NegativeCacheEntry>>> CacheStore::list(CacheTarget target)
 {
-    lock_guard<mutex> lock(_mtx);
-    string out;
-
+    lock_guard<mutex> lock(_mutex);
+    pair<vector<pair<CacheKey, PositiveCacheEntry>>, vector<pair<CacheKey, NegativeCacheEntry>>> result;
+    
     if (target == CacheTarget::Positive || target == CacheTarget::All)
-    {
-        out += "---- Cache Positiva ---- (" + to_string(_positiveCache.size()) + " entradas)\n";
-        for (const auto& [k, v] : _positiveCache)
-        {
-            int remaining = max(0, v.ttl - static_cast<int>(difftime(time(nullptr), v.timestamp)));
-            out += k + " → " + v.value + " (TTL=" + to_string(remaining) + ")\n";
-        }
-    }
+        for(const auto& pair : _positive_cache)
+            result.first.push_back(pair);
     if (target == CacheTarget::Negative || target == CacheTarget::All)
-    {
-        if (!out.empty())
-            out += "\n";
-        out += "---- Cache Negativa ---- (" + to_string(_negativeCache.size()) + " entradas)\n";
-        for (const auto& [k, v] : _negativeCache)
-        {
-            int remaining = max(0, v.ttl - static_cast<int>(difftime(time(nullptr), v.timestamp)));
-            out += k + " → " + v.value + " (TTL=" + to_string(remaining) + ")\n";
-        }
-    }
-    return out.empty() ? "Cache vazia.\n" : out;
+        for(const auto& pair : _negative_cache)
+            result.second.push_back(pair);
+    return result;
 }
 
-void CacheStore::setMaxSize(size_t n, bool positive)
+void CacheStore::setMaxSize(size_t n, bool is_positive)
 {
-    if (positive)
-        _maxPositive = n;
+    lock_guard<mutex> lock(_mutex);
+    if (is_positive)
+        _max_positive_size = n;
     else
-        _maxNegative = n;
+        _max_negative_size = n;
 }
 
-string CacheStore::status() const
+CacheStatus CacheStore::getStatus() const
 {
-    lock_guard<mutex> lock(_mtx);
-    return "Cache positiva: " + to_string(_positiveCache.size()) + "/" + to_string(_maxPositive) + "\n" +
-           "Cache negativa: " + to_string(_negativeCache.size()) + "/" + to_string(_maxNegative) + "\n";
+    lock_guard<mutex> lock(_mutex);
+    return {
+        _positive_cache.size(),
+        _max_positive_size,
+        _negative_cache.size(),
+        _max_negative_size
+    };
 }
 
-void CacheStore::startCleanupThread(int intervalSec)
+void CacheStore::startCleanupThread(int interval_sec)
 {
-    _running = true;
-    _cleanupThread = thread([this, intervalSec]() {
-        while (_running)
-        {
-            this->cleanup();
-            this_thread::sleep_for(chrono::seconds(intervalSec));
-        }
-    });
+    if (!_is_running)
+    {
+        _is_running = true;
+        _cleanup_thread = thread([this, interval_sec]() {
+            while (_is_running)
+            {
+                this_thread::sleep_for(chrono::seconds(interval_sec));
+                this->cleanup();
+            }
+        });
+    }
 }
 
 void CacheStore::stopCleanupThread()
 {
-    _running = false;
-    if (_cleanupThread.joinable())
-        _cleanupThread.join();
+    _is_running = false;
+    if (_cleanup_thread.joinable())
+        _cleanup_thread.join();
 }
 
 void CacheStore::cleanup()
 {
-    lock_guard<mutex> lock(_mtx);
-    time_t now = time(nullptr);
-    auto pred = [now](auto& p) { return difftime(now, p.second.timestamp) > p.second.ttl; };
-    for (auto it = _positiveCache.begin(); it != _positiveCache.end(); )
-        it = pred(*it) ? _positiveCache.erase(it) : ++it;
-    for (auto it = _negativeCache.begin(); it != _negativeCache.end(); )
-        it = pred(*it) ? _negativeCache.erase(it) : ++it;
+    lock_guard<mutex> lock(_mutex);
+    const auto now = time(nullptr);
+    for (auto it = _positive_cache.begin(); it != _positive_cache.end();)
+        if (now > it->second.expiration_time)
+            it = _positive_cache.erase(it);
+        else
+            ++it;
+    for (auto it = _negative_cache.begin(); it != _negative_cache.end();)
+        if (now > it->second.expiration_time)
+            it = _negative_cache.erase(it);
+        else
+            ++it;
 }

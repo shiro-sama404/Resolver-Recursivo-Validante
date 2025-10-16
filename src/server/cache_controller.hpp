@@ -1,23 +1,38 @@
 #pragma once
-#include <iostream>
-#include <sstream>
+
+#include <optional>
 #include <string>
 
 #include "cache_store.hpp"
-#include "../utils/stringUtils.hpp"
+#include "../utils/cache_types.hpp"
 
+/**
+ * @brief Processa objetos de comando, interage com o CacheStore e formata
+ * as respostas para o usuário.
+ */
 class CacheController
 {
 public:
-    explicit CacheController(CacheStore& store);
-    string processCommand(const string& cmd);
+    explicit CacheController(CacheStore& store)
+        : _store(store){};
+
+
+    /**
+     * @brief Ponto de entrada principal para processar qualquer comando.
+     * @param cmd O objeto de comando a ser executado.
+     * @return Um objeto CacheResponse com a resposta formatada.
+     */
+    CacheResponse processCommand(const Command& cmd);
 
 private:
     CacheStore& _store;
 
-    string handleGet(const string& args, bool positive);
-    string handlePut(const string& args, bool positive);
-    string handlePurge(const string& args);
-    string handleSet  (const string& args);
-    string handleList (const string& args);
+    CacheResponse handleGetPositive(const Command& cmd);
+    CacheResponse handleGetNegative(const Command& cmd);
+    CacheResponse handlePutPositive(const Command& cmd);
+    CacheResponse handlePutNegative(const Command& cmd);
+    CacheResponse handlePurge(const Command& cmd);
+    CacheResponse handleSetMaxSize(const Command& cmd);
+    CacheResponse handleList(const Command& cmd);
+    CacheResponse handleStatus();
 };

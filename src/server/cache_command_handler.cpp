@@ -1,115 +1,111 @@
 #include "cache_command_handler.hpp"
 
+#include <iostream>
+#include <sstream>
+
+#include "../server/cache_client.hpp"
+#include "../utils/consoleUtils.hpp"
+
+using namespace std;
+
 int CacheCommandHandler::execute(const Arguments& args, int argc, char* argv[])
 {
     try
     {
-        auto cmd = args.get_cache_command();
+        CacheCommand command = args.getCacheCommand();
+        stringstream command_stream;
 
-        switch (cmd)
+        if (command == CacheCommand::Activate)
         {
-            case CacheCommand::Activate:
-                {
-                    CacheStore store;
-                    CacheController controller(store);
-                    CacheServer server(controller);
-                    server.run();
-                }
-                return EXIT_SUCCESS;
+            CacheStore store;
+            CacheController controller(store);
+            CacheServer server(controller);
+            server.run();
+            return EXIT_SUCCESS;
+        }
 
+        if (!CacheClient::isCacheActive)
+        {
+            cerr << "Cache Daemon inativo." << endl;
+            args.printUsage();
+            return EXIT_FAILURE;
+        }
+
+        switch (command)
+        {
             case CacheCommand::Deactivate:
-                cout << CacheClient::send_command("SHUTDOWN") << endl;
-                return EXIT_SUCCESS;
-                
+                command_stream << "SHUTDOWN";
+                break;
             case CacheCommand::Status:
-                cout << CacheClient::send_command("STATUS") << endl;
-                return EXIT_SUCCESS;
-                
+                command_stream << "STATUS";
+                break;
             case CacheCommand::PurgeAll:
-                cout << CacheClient::send_command("PURGE ALL") << endl;
-                return EXIT_SUCCESS;
-                
+                command_stream << "PURGE ALL";
+                break;
             case CacheCommand::PurgePositive:
-                cout << CacheClient::send_command("PURGE POSITIVE") << endl;
-                return EXIT_SUCCESS;
-
+                command_stream << "PURGE POSITIVE";
+                break;
             case CacheCommand::PurgeNegative:
-                cout << CacheClient::send_command("PURGE NEGATIVE") << endl;
-                return EXIT_SUCCESS;
-
+                command_stream << "PURGE NEGATIVE";
+                break;
             case CacheCommand::ListAll:
-                cout << CacheClient::send_command("LIST ALL") << endl;
-                return EXIT_SUCCESS;
-                
+                command_stream << "LIST ALL";
+                break;
             case CacheCommand::ListPositive:
-                cout << CacheClient::send_command("LIST POSITIVE") << endl;
-                return EXIT_SUCCESS;
-
+                command_stream << "LIST POSITIVE";
+                break;
             case CacheCommand::ListNegative:
-                cout << CacheClient::send_command("LIST NEGATIVE") << endl;
-                return EXIT_SUCCESS;
-
+                command_stream << "LIST NEGATIVE";
+                break;
             case CacheCommand::SetPositive:
-                if (argc < 3)
-                    exit_error_message("Erro: uso correto: --set positive <tamanho>\n");
-                {
-                    string valor = argv[2];
-                    cout << CacheClient::send_command("SET POSITIVE " + valor) << endl;
-                }
-                return EXIT_SUCCESS;
-
+            {
+                if (argc < 3) exitErrorMessage("Uso: --set-positive <tamanho>");
+                command_stream << "SET POSITIVE " << argv[2];
+                break;
+            }
             case CacheCommand::SetNegative:
-                if (argc < 3)
-                    exit_error_message("Erro: uso correto: --set negative <tamanho>\n");
-                {
-                    string valor = argv[2];
-                    cout << CacheClient::send_command("SET NEGATIVE " + valor) << endl;
-                }
-                
-                return EXIT_SUCCESS;
-            case CacheCommand::CachePut:
-                if (argc < 5)
-                    exit_error_message("Erro: uso correto: --cache-put <nome> <valor> <ttl>\n");
-                {
-                    string nome = argv[2];
-                    string valor_ip = argv[3];
-                    string ttl = argv[4];
-                    cout << CacheClient::send_command("CACHE_PUT " + nome + " " + valor_ip + " " + ttl) << endl;
-                }
-                return EXIT_SUCCESS;
-
-            case CacheCommand::CachePutNegative:
-                if (argc < 5)
-                    exit_error_message("Erro: uso correto: --cache-put-negative <nome> <valor> <ttl>\n");
-                {
-                    string nome = argv[2];
-                    string valor_ip = argv[3];
-                    string ttl = argv[4];
-                    cout << CacheClient::send_command("CACHE_PUT_NEGATIVE " + nome + " " + valor_ip + " " + ttl) << endl;
-                }
-                return EXIT_SUCCESS;
-            
-            case CacheCommand::CacheGet:
-                if (argc < 3)
-                    exit_error_message("Erro: uso correto: --cache-get <nome>\n");
-                {
-                    string nome = argv[2];
-                    cout << CacheClient::send_command("CACHE_GET " + nome) << endl;
-                }
-                return EXIT_SUCCESS;
-
-            case CacheCommand::CacheGetNegative:
-                if (argc < 3)
-                    exit_error_message("Erro: uso correto: --cache-get-negative <nome>\n");
-                {
-                    string nome = argv[2];
-                    cout << CacheClient::send_command("CACHE_GET_NEGATIVE " + nome) << endl;
-                }
-                return EXIT_SUCCESS;
+            {
+                if (argc < 3) exitErrorMessage("Uso: --set-negative <tamanho>");
+                command_stream << "SET NEGATIVE " << argv[2];
+                break;
+            }
+            case CacheCommand::Get:
+            {
+                if (argc < 3) exitErrorMessage("Uso: --get <qname> [qtype] [qclass]");
+                string qname = argv[2];
+                string qtype = (argc > 3) ? argv[3] : "1";   // Padrão A
+                string qclass = (argc > 4) ? argv[4] : "1"; // Padrão IN
+                command_stream << "GET " << qname << " " << qtype << " " << qclass;
+                break;
+            }
+            case CacheCommand::GetNegative:
+            {
+                 if (argc < 3) exitErrorMessage("Uso: --get-negative <qname> [qtype] [qclass]");
+                string qname = argv[2];
+                string qtype = (argc > 3) ? argv[3] : "1";
+                string qclass = (argc > 4) ? argv[4] : "1";
+                command_stream << "GET_NEGATIVE " << qname << " " << qtype << " " << qclass;
+                break;
+            }
+            case CacheCommand::Put:
+            {
+                 if (argc < 7) exitErrorMessage("Uso: --put <qname> <qtype> <qclass> <rdata> <ttl> <validated>");
+                 command_stream << "PUT " << argv[2] << " " << argv[3] << " " << argv[4] << " " << argv[5] << " " << argv[6] << " " << argv[7];
+                 break;
+            }
+            case CacheCommand::PutNegative:
+            {
+                 if (argc < 6) exitErrorMessage("Uso: --put-negative <qname> <qtype> <qclass> <reason> <ttl>");
+                 command_stream << "PUT_NEGATIVE " << argv[2] << " " << argv[3] << " " << argv[4] << " " << argv[5] << " " << argv[6];
+                 break;
+            }
             default:
                 cerr << "Comando de cache inválido ou não suportado.\n";
                 return EXIT_FAILURE;
         }
+
+        cout << CacheClient::sendCommand(command_stream.str()) << endl;
+        return EXIT_SUCCESS;
     }
     catch (const exception& e)
     {

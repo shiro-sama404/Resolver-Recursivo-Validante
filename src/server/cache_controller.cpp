@@ -1,106 +1,142 @@
 #include "cache_controller.hpp"
 
-CacheController::CacheController(CacheStore& store) : _store(store) {}
+#include <algorithm>
+#include <sstream>
 
-string CacheController::processCommand(const string& cmd)
+using namespace std;
+
+CacheResponse CacheController::processCommand(const Command& cmd)
 {
-    istringstream iss(cmd);
-    string action; iss >> action;
-
-    if (action == "CACHE_PUT")            return handlePut  (cmd.substr(action.size()), true);
-    if (action == "CACHE_PUT_NEGATIVE")   return handlePut  (cmd.substr(action.size()), false);
-    if (action == "CACHE_GET")            return handleGet  (cmd.substr(action.size()), true);
-    if (action == "CACHE_GET_NEGATIVE")   return handleGet  (cmd.substr(action.size()), false);
-    if (action == "PURGE")                return handlePurge(cmd.substr(action.size()));
-    if (action == "SET")                  return handleSet  (cmd.substr(action.size()));
-    if (action == "LIST")                 return handleList (cmd.substr(action.size()));
-    if (action == "STATUS")               return _store.status();
-    if (action == "SHUTDOWN")             return "SHUTDOWN\n";
-    if (action == "START_CLEANUP_THREAD")
+    switch (cmd.type)
     {
-        int expired_purge_interval; iss >> expired_purge_interval;
-        cout << "teste" << endl;
-        _store.startCleanupThread(expired_purge_interval);
-        cout << "teste2" << endl;
-        return "Thread de limpeza iniciada a cada " + to_string(expired_purge_interval) + "s.\n";
+        case CommandType::PUT_POSITIVE: return handlePutPositive(cmd);
+        case CommandType::PUT_NEGATIVE: return handlePutNegative(cmd);
+        case CommandType::GET_POSITIVE: return handleGetPositive(cmd);
+        case CommandType::GET_NEGATIVE: return handleGetNegative(cmd);
+        case CommandType::PURGE:        return handlePurge      (cmd);
+        case CommandType::SET_MAX_SIZE: return handleSetMaxSize (cmd);
+        case CommandType::LIST:         return handleList       (cmd);
+        case CommandType::STATUS:       return handleStatus        ();
+        case CommandType::START_CLEANUP_THREAD:
+            _store.startCleanupThread(cmd.interval.value_or(10));
+            return {"[CACHE] Thread de limpeza iniciada."};
+        case CommandType::SHUTDOWN:
+            _store.stopCleanupThread();
+            return {"[CACHE] Cache Daemon desativado."};
+        default:
+            return {"[CACHE] Comando desconhecido."};
     }
-    if (action == "STOP_CLEANUP_THREAD")   _store.stopCleanupThread (); return "";
-
-    return "Erro: comando desconhecido.\n";
 }
 
-string CacheController::handlePut(const string& args, bool positive)
+CacheResponse CacheController::handlePutPositive(const Command& cmd)
 {
-    istringstream ss(args);
-    string key, value;
-    int ttl;
-    ss >> key >> value >> ttl;
-    if (key.empty() || value.empty() || !ss)
-        return "Erro: uso correto: [--cache-put|--cache-put-negative] <key> <value> <ttl>\n";
-    _store.put(key, value, ttl, positive);
-    return "OK: armazenado " + key + " -> " + value + " (TTL=" + to_string(ttl) + ")\n";
+    if (!cmd.key || !cmd.positive_entry)
+        return {"[CACHE] Erro: Dados insuficientes para PUT."};
+    
+    _store.put(*cmd.key, *cmd.positive_entry);
+    return {"[CACHE] OK: Entrada positiva armazenada para " + cmd.key->qname};
 }
 
-string CacheController::handleGet(const string& args, bool positive)
+CacheResponse CacheController::handlePutNegative(const Command& cmd)
 {
-    istringstream ss(args);
-    string key;
-    ss >> key;
-    if (key.empty())
-        return "Erro: uso correto: --cache-get <nome>\n";
-    return _store.get(key, positive);
-}
-
-string CacheController::handlePurge(const string& args)
-{
-    string type;
-    istringstream(args) >> type;
-
-    convert_case(type, true);
-    CacheTarget target_cache = CacheStore::string_to_target(type);
-
-    if (target_cache == CacheTarget::Invalid)
-        return "Erro: uso correto: --purge- POSITIVE|NEGATIVE|ALL\n";
-
-    _store.purge(target_cache);
-
-    if (target_cache == CacheTarget::Positive)
-        return "Cache positiva limpa.\n";
-    if (target_cache == CacheTarget::Negative)
-        return "Cache negativa limpa.\n";
-    return "Todas as caches limpas.\n";
-}
-
-string CacheController::handleSet(const string& args)
-{
-    string type;
-    size_t size;
-    istringstream(args) >> type >> size;
-
-    convert_case(type, false);
-
-    if (type == "POSITIVE")
+    if (!cmd.key || !cmd.negative_entry)
     {
-        _store.setMaxSize(size, true);
-        return "Limite positivo ajustado.\n";
+        return {"[CACHE] Erro: Dados insuficientes para PUT."};
     }
-    if (type == "NEGATIVE")
-    {
-        _store.setMaxSize(size, false);
-        return "Limite negativo ajustado.\n";
-    }
-    return "Erro: uso correto: SET POSITIVE|NEGATIVE <n>\n";
+
+    _store.put(*cmd.key, *cmd.negative_entry);
+    return {"[CACHE] OK: Entrada negativa armazenada para " + cmd.key->qname};
 }
 
-string CacheController::handleList(const string& args)
+CacheResponse CacheController::handleGetPositive(const Command& cmd)
 {
-    string type;
-    istringstream(args) >> type;
-    convert_case(type, true);
-    CacheTarget target_cache = CacheStore::string_to_target(type);
+    if (!cmd.key)
+        return {"[CACHE] Erro: Chave não fornecida para GET."};
 
-    if (target_cache == CacheTarget::Invalid)
-        return "Erro: uso correto: LIST POSITIVE|NEGATIVE|ALL\n";
+    auto result = _store.getPositive(*cmd.key);
+    if (result)
+    {
+        string data_str = visit([](auto&& arg) -> string {
+            using T = decay_t<decltype(arg)>;
+            if constexpr (is_same_v<T, string>)
+                return arg;
+            else
+                return "[CACHE] dados binarios";
+        }, result->rdata);
 
-    return _store.list(target_cache);
+        return {"[CACHE HIT] " + data_str, result};
+    }
+    return {"[CACHE MISS]"};
+}
+
+CacheResponse CacheController::handleGetNegative(const Command& cmd)
+{
+    if (!cmd.key)
+        return {"[CACHE] Erro: Chave não fornecida para GET."};
+
+    auto result = _store.getNegative(*cmd.key);
+    if (result)
+    {
+        string reason_str = (result->reason == NegativeReason::NXDOMAIN) ? "NXDOMAIN" : "NODATA";
+        return {"[CACHE HIT] " + reason_str, nullopt, result};
+    }
+    return {"[CACHE MISS]"};
+}
+
+CacheResponse CacheController::handlePurge(const Command& cmd)
+{
+    if (!cmd.target)
+        return {"[CACHE] Erro: Alvo de purge não especificado."};
+    
+    _store.purge(*cmd.target);
+    return {"[CACHE] Cache limpa com sucesso."};
+}
+
+CacheResponse CacheController::handleSetMaxSize(const Command& cmd)
+{
+    if (!cmd.size || !cmd.is_positive)
+        return {"[CACHE] Erro: Parâmetros inválidos para SET."};
+    
+    _store.setMaxSize(*cmd.size, *cmd.is_positive);
+    return {"[CACHE] Tamanho máximo da cache atualizado."};
+}
+
+CacheResponse CacheController::handleList(const Command& cmd)
+{
+    if (!cmd.target)
+        return {"[CACHE] Erro: Alvo de list não especificado."};
+
+    auto lists = _store.list(*cmd.target);
+    stringstream ss;
+
+    if (*cmd.target == CacheTarget::Positive || *cmd.target == CacheTarget::All)
+    {
+        ss << "==== Cache Positiva (" << lists.first.size() << " entradas) ====\n";
+        for (const auto& [key, entry] : lists.first)
+        {
+            long remaining_ttl = max(0L, entry.expiration_time - time(nullptr));
+            ss << key.qname << " (T:" << key.qtype << ") -> ... (TTL: " << remaining_ttl << "s)\n";
+        }
+    }
+    if (*cmd.target == CacheTarget::Negative || *cmd.target == CacheTarget::All)
+    {
+        if (ss.tellp() > 0) ss << "\n";
+        ss << "==== Cache Negativa (" << lists.second.size() << " entradas) ====\n";
+        for (const auto& [key, entry] : lists.second)
+        {
+            long remaining_ttl = max(0L, entry.expiration_time - time(nullptr));
+            string reason = entry.reason == NegativeReason::NXDOMAIN ? "NXDOMAIN" : "NODATA";
+            ss << key.qname << " (T:" << key.qtype << ") -> " << reason << " (TTL: " << remaining_ttl << "s)\n";
+        }
+    }
+    return {ss.str()};
+}
+
+CacheResponse CacheController::handleStatus()
+{
+    auto status = _store.getStatus();
+    stringstream ss;
+    ss << "[Cache Positiva]: " << status.positive_current_size << "/" << status.positive_max_size << "\n";
+    ss << "[Cache Negativa]: " << status.negative_current_size << "/" << status.negative_max_size << "\n";
+    return {ss.str()};
 }

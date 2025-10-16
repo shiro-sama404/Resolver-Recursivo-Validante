@@ -1,58 +1,111 @@
 #pragma once
+
 #include <chrono>
-#include <fstream>
-#include <iostream>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <variant>
+#include <vector>
 
-using namespace std;
+#include "../utils/cache_types.hpp"
 
-enum class CacheTarget
-{
-    Positive,
-    Negative,
-    All,
-    Invalid
-};
-
-enum class NegativeErrorType { NXDOMAIN, NODATA, SERVFAIL, UNKNOWN };
-
-struct CacheEntry
-{
-    string value;
-    int ttl;
-    time_t timestamp;
-};
-
+/**
+ * @brief Gerencia o armazenamento e ciclo de vida de registros DNS em cache.
+ * @details Oferece caches separadas para respostas positivas e negativas,
+ * com controle de tamanho, expiração e limpeza automática (thread-safe).
+ */
 class CacheStore
 {
 public:
     CacheStore() {};
 
-    static string target_to_string(CacheTarget m);
-    static CacheTarget string_to_target(const string& s);
+    /**
+     * @brief Insere ou atualiza uma entrada na cache positiva.
+     * @param key A chave única da consulta.
+     * @param entry O registro de resposta positiva a ser armazenado.
+     */
+    void put(const CacheKey& key, const PositiveCacheEntry& entry);
 
-    void put(const string& key, const string& value, int ttl, bool positive = true);
-    string get(const string& key, bool positive = true);
-    void purge(CacheTarget target = CacheTarget::All);
-    string list(CacheTarget target = CacheTarget::All);
-    void setMaxSize(size_t n, bool positive = true);
-    string status() const;
+    /**
+     * @brief Insere ou atualiza uma entrada na cache negativa.
+     * @param key A chave única da consulta.
+     * @param entry O registro de resposta negativa a ser armazenado.
+     */
+    void put(const CacheKey& key, const NegativeCacheEntry& entry);
+    
+    /**
+     * @brief Busca uma entrada na cache positiva.
+     * @param key A chave da consulta a ser buscada.
+     * @return Um std::optional contendo a entrada se encontrada e não expirada.
+     */
+    std::optional<PositiveCacheEntry> getPositive(const CacheKey& key);
 
-    void startCleanupThread(int intervalSec = 10);
+    /**
+     * @brief Busca uma entrada na cache negativa.
+     * @param key A chave da consulta a ser buscada.
+     * @return Um std::optional contendo a entrada se encontrada e não expirada.
+     */
+    std::optional<NegativeCacheEntry> getNegative(const CacheKey& key);
+    
+    /**
+     * @brief Limpa todos os registros de uma ou de ambas as caches.
+     * @param target A cache a ser limpa (Positive, Negative, ou All).
+     */
+    void purge(CacheTarget target);
+
+    /**
+     * @brief Lista o conteúdo bruto de uma ou ambas as caches.
+     * @param target A cache a ser listada.
+     * @return Um par de vetores contendo as entradas das caches.
+     */
+    std::pair<std::vector<std::pair<CacheKey, PositiveCacheEntry>>, std::vector<std::pair<CacheKey, NegativeCacheEntry>>> list(CacheTarget target);
+    
+    /**
+     * @brief Define o número máximo de entradas para uma das caches.
+     * @param n O novo tamanho máximo.
+     * @param is_positive Verdadeiro para a cache positiva, falso para a negativa.
+     */
+    void setMaxSize(size_t n, bool is_positive);
+
+    /**
+     * @brief Obtém o status atual das caches (tamanho e capacidade).
+     * @return Uma struct CacheStatus com as informações.
+     */
+    CacheStatus getStatus() const;
+
+    /**
+     * @brief Inicia uma thread em segundo plano para limpar entradas expiradas.
+     * @param interval_sec O intervalo em segundos entre cada limpeza.
+     */
+    void startCleanupThread(int interval_sec = 10);
+
+    /**
+     * @brief Para a thread de limpeza, se estiver em execução.
+     */
     void stopCleanupThread();
 
+    /**
+     * @brief Converte uma string para o enum CacheTarget.
+     * @param s A string a ser convertida (ex: "POSITIVE").
+     * @return O valor do enum correspondente.
+     */
+    static CacheTarget stringToTarget(const std::string& s);
+
 private:
-    unordered_map<string, CacheEntry> _positiveCache;
-    unordered_map<string, CacheEntry> _negativeCache;
-    mutable mutex _mtx;
-
-    size_t _maxPositive = 50;
-    size_t _maxNegative = 50;
-    bool _running = false;
-    thread _cleanupThread;
-
+    /**
+     * @brief Método executado pela thread para remover entradas expiradas.
+     */
     void cleanup();
+
+    std::unordered_map<CacheKey, PositiveCacheEntry> _positive_cache;
+    std::unordered_map<CacheKey, NegativeCacheEntry> _negative_cache;
+    mutable std::mutex _mutex;
+
+    size_t _max_positive_size = 50;
+    size_t _max_negative_size = 50;
+    
+    bool _is_running = false;
+    std::thread _cleanup_thread;
 };
