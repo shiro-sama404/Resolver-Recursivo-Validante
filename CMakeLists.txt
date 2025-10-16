@@ -1,59 +1,55 @@
+# CMakeLists.txt (na raiz do projeto)
+
 cmake_minimum_required(VERSION 3.16)
 project(DNSResolver LANGUAGES CXX)
 
-# -------------------------------------------------------------------
-# CONFIGURAÇÕES GERAIS
-# -------------------------------------------------------------------
+# --- Configurações Gerais ---
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)
-
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug)
-endif()
+# --- Fontes da Biblioteca ---
+file(GLOB CLI_SOURCES    CONFIGURE_DEPENDS "src/cli/*.cpp")
+file(GLOB DNS_SOURCES    CONFIGURE_DEPENDS "src/dns/*.cpp")
+file(GLOB SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.cpp")
+file(GLOB UTILS_SOURCES  CONFIGURE_DEPENDS "src/utils/*.cpp")
 
-# -------------------------------------------------------------------
-# DETECÇÃO AUTOMATICA DE FONTES
-# -------------------------------------------------------------------
-# Busca todos os .cpp dentro de src/
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
-    src/*.cpp)
-
-# -------------------------------------------------------------------
-# ADICIONA EXECUTÁVEL PRINCIPAL
-# -------------------------------------------------------------------
-add_executable(resolver ${SRC_FILES})
-
-target_include_directories(resolver PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/src/cli
-    ${CMAKE_SOURCE_DIR}/src/server
-    ${CMAKE_SOURCE_DIR}/src/dns
-    ${CMAKE_SOURCE_DIR}/src/utils
-    /usr/include              # Diretório geral para mbedTLS
+set(RESOLVER_LIB_SOURCES
+    ${CLI_SOURCES}
+    ${DNS_SOURCES}
+    ${SERVER_SOURCES}
+    ${UTILS_SOURCES}
 )
 
-# -------------------------------------------------------------------
-# LINKA DEPENDÊNCIAS OPCIONAIS (OpenSSL, Threads, etc.)
-# -------------------------------------------------------------------
+# --- Criação da Biblioteca ---
+add_library(resolver_lib ${RESOLVER_LIB_SOURCES})
+
+target_include_directories(resolver_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+# --- Dependências da Biblioteca ---
 find_package(Threads REQUIRED)
-target_link_libraries(resolver PRIVATE Threads::Threads)
+find_library(MBEDTLS_LIB mbedtls REQUIRED)
+find_library(MBEDX509_LIB mbedx509 REQUIRED)
+find_library(MBEDCRYPTO_LIB mbedcrypto REQUIRED)
 
-find_library(MBEDTLS_LIB mbedtls)
-find_library(MBEDX509_LIB mbedx509)
-find_library(MBEDCRYPTO_LIB mbedcrypto)
+target_link_libraries(resolver_lib PRIVATE
+    Threads::Threads
+    ${MBEDTLS_LIB}
+    ${MBEDX509_LIB}
+    ${MBEDCRYPTO_LIB}
+)
 
-if(MBEDTLS_LIB AND MBEDX509_LIB AND MBEDCRYPTO_LIB)
-    target_link_libraries(resolver PRIVATE ${MBEDTLS_LIB} ${MBEDX509_LIB} ${MBEDCRYPTO_LIB})
-    message(STATUS "Linking with mbedTLS")
-else()
-    message(FATAL_ERROR "mbedTLS not found. Por favor instale-o.")
-endif()
+# --- Executável Principal ---
+add_executable(resolver src/main.cpp)
+target_link_libraries(resolver PRIVATE resolver_lib)
+# Coloca o executável na pasta bin/ para facilitar a execução dos testes
+set_target_properties(resolver PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# -------------------------------------------------------------------
-# MENSAGENS DE CONFIGURAÇÃO
-# -------------------------------------------------------------------
-message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+
+# --- Integração com os Testes ---
+enable_testing()
+add_subdirectory(tests)
+
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
