@@ -1,16 +1,17 @@
 #pragma once
 
-#include <cstdlib>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <optional>
 #include <getopt.h>
 
-using namespace std;
+#include <iostream>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
+/**
+ * @brief Modos de operação do resolvedor DNS.
+ */
 enum class Mode
 {
     Recursive,
@@ -23,6 +24,9 @@ enum class Mode
     Unknown
 };
 
+/**
+ * @brief Comandos específicos para o gerenciamento do cache via linha de comando.
+ */
 enum class CacheCommand
 {
     None,
@@ -37,51 +41,78 @@ enum class CacheCommand
     ListAll,
     SetPositive,
     SetNegative,
-    CachePut,
-    CachePutNegative,
-    CacheGet,
-    CacheGetNegative
+    Put,
+    PutNegative,
+    Get,
+    GetNegative
 };
 
+/**
+ * @brief Analisa, armazena e fornece acesso aos argumentos da linha de comando.
+ */
 class Arguments
 {
 public:
+    /**
+     * @brief Constrói e analisa os argumentos da linha de comando.
+     * @param argc O número de argumentos.
+     * @param argv O vetor de argumentos.
+     */
     Arguments(int argc, char* argv[]);
 
-    // Getters
-    const string& get_ns() const { return _ns; }
-    const string& get_name() const { return _name; }
-    const string& get_qtype() const { return _qtype; }
-    Mode get_mode() const { return _mode; }
-    const optional<string>& get_sni() const { return _sni; }
-    const optional<string>& get_trust_anchor() const { return _trust_anchor; }
-    int get_fanout() const { return _fanout; }
-    int get_workers() const { return _workers; }
-    int get_timeout() const { return _timeout; }
-    bool is_trace_enabled() const { return _trace; }
-    bool has_dns_args() const { return _hasDNSArgs; }
-    CacheCommand get_cache_command() const { return _cacheCommand; }
+public:
+     // --- Getters ---
+    const std::string& getNs() const { return _ns; }
+    const std::string& getName() const { return _name; }
+    const std::string& getQtype() const { return _qtype; }
+    Mode getMode() const { return _mode; }
+    const std::optional<std::string>& getSni() const { return _sni; }
+    const std::optional<std::string>& getTrustAnchor() const { return _trust_anchor; }
+    int getFanout() const { return _fanout; }
+    int getWorkers() const { return _workers; }
+    int getTimeout() const { return _timeout; }
+    bool isTraceEnabled() const { return _trace; }
+    bool hasDnsArgs() const { return _has_dns_args; }
+    CacheCommand getCacheCommand() const { return _cache_command; }
 
-    void print_summary() const;
-    static void print_usage(const char* prog);
+    /**
+     * @brief Imprime um resumo dos argumentos DNS configurados.
+     */
+    void printSummary() const;
+
+    /**
+     * @brief Imprime a mensagem de uso padrão da aplicação.
+     */
+    static void printUsage();
     
-    static string mode_to_string(Mode m);
-    static Mode string_to_mode(const string& s);
+    /**
+     * @brief Converte um enum Mode para sua representação em string.
+     * @param m O modo a ser convertido.
+     * @return A string correspondente.
+     */
+    static std::string modeToString(Mode m);
+
+    /**
+     * @brief Converte uma string para o enum Mode correspondente.
+     * @param s A string a ser convertida.
+     * @return O enum Mode.
+     */
+    static Mode stringToMode(const std::string& s);
     
 private:
-    string _ns;
-    string _name;
-    string _qtype;
-    optional<string> _sni;
-    optional<string> _trust_anchor;
+    void parse(int argc, char* argv[]);
+
+    std::string _ns = "8.8.8.8"; // Default
+    std::string _name = "example.com.";
+    std::string _qtype = "A";
+    Mode _mode = Mode::Recursive;
+    std::optional<std::string> _sni;
+    std::optional<std::string> _trust_anchor;
     int _fanout = 1;
     int _workers = 1;
     int _timeout = 5;
     bool _trace = false;
-    bool _hasDNSArgs = false;
-    
-    Mode _mode = Mode::Unknown;
-    CacheCommand _cacheCommand = CacheCommand::None;
-    
-    void parse(int argc, char* argv[]);
+
+    bool _has_dns_args = false;
+    CacheCommand _cache_command = CacheCommand::None;
 };
