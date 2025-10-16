@@ -14,6 +14,6 @@ int main(int argc, char* argv[])
         DNSCommandHandler handler(args, client);
         return handler.execute();
     }
-    
+
     return EXIT_FAILURE;
 }
