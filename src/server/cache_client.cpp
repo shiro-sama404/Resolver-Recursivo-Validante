@@ -1,13 +1,14 @@
 #include "cache_client.hpp"
 
-string CacheClient::send_command(const string& cmd)
+#include <fcntl.h>
+
+using namespace std;
+
+string CacheClient::sendCommand(const string& command_str)
 {
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
-    {
-        perror("socket");
         return "";
-    }
 
     sockaddr_un addr{};
     addr.sun_family = AF_UNIX;
@@ -19,7 +20,7 @@ string CacheClient::send_command(const string& cmd)
         return "";
     }
 
-    string payload = cmd + "\n";
+    string payload = command_str;
     send(sock, payload.c_str(), payload.size(), 0);
 
     char buffer[2048];
@@ -34,12 +35,12 @@ string CacheClient::send_command(const string& cmd)
     return answer;
 }
 
-bool CacheClient::is_cache_active(int timeout_ms) {
+bool CacheClient::isCacheActive(int timeout_ms)
+{
     int s = socket(AF_UNIX, SOCK_STREAM, 0);
     if (s < 0)
         return false;
 
-    // configura non-blocking
     int flags = fcntl(s, F_GETFL, 0);
     fcntl(s, F_SETFL, flags | O_NONBLOCK);
 
@@ -47,19 +48,19 @@ bool CacheClient::is_cache_active(int timeout_ms) {
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, "/tmp/resolver.sock", sizeof(addr.sun_path)-1);
 
-    int res = connect(s, (sockaddr*)&addr, sizeof(addr));
-    if (res == 0)
+    int result = connect(s, (sockaddr*)&addr, sizeof(addr));
+    if (result == 0)
     {
         close(s);
         return true;
     }
+    
     if (errno != EINPROGRESS)
     {
         close(s);
         return false;
     }
 
-    // espera socket ficar writeable
     fd_set wf;
     FD_ZERO(&wf);
     FD_SET(s, &wf);
@@ -67,16 +68,21 @@ bool CacheClient::is_cache_active(int timeout_ms) {
     tv.tv_sec = timeout_ms / 1000;
     tv.tv_usec = (timeout_ms % 1000) * 1000;
 
-    int sel = select(s+1, NULL, &wf, NULL, &tv);
-    if (sel <= 0) // timeout ou erro
+    if (select(s + 1, NULL, &wf, NULL, &tv) <= 0)
     {
         close(s);
         return false;
-    } 
+    }
 
     int so_error = 0;
     socklen_t len = sizeof(so_error);
-    getsockopt(s, SOL_SOCKET, SO_ERROR, &so_error, &len);
+    
+    if (getsockopt(s, SOL_SOCKET, SO_ERROR, &so_error, &len) != 0)
+    {
+        close(s);
+        return false;
+    }
+
     close(s);
     return (so_error == 0);
 }
